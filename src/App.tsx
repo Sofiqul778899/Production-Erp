@@ -35,8 +35,7 @@ import {
   serverTimestamp,
   writeBatch
 } from 'firebase/firestore';
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType } from './utils';
 import type { 
   ProductionEntry, 
@@ -52,8 +51,6 @@ import { motion, AnimatePresence } from 'motion/react';
 type Section = 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeSection, setActiveSection] = useState<Section>('production');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,18 +111,6 @@ export default function App() {
 
   // Real-time listeners
   useEffect(() => {
-    console.log("Initializing auth listener...");
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Auth state changed:", currentUser ? `User: ${currentUser.email}` : "No user");
-      setUser(currentUser);
-      setIsAuthReady(true);
-    });
-    return () => unsubscribeAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-
     const qProduction = query(collection(db, 'production'), orderBy('createdAt', 'desc'));
     const unsubProduction = onSnapshot(qProduction, (snapshot) => {
       setProductionData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductionEntry)));
@@ -159,51 +144,7 @@ export default function App() {
       unsubOperators();
       unsubPending();
     };
-  }, [user]);
-
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  const handleLogin = async () => {
-    console.log("Login button clicked");
-    setIsLoggingIn(true);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    try {
-      console.log("Calling signInWithPopup...");
-      const result = await signInWithPopup(auth, provider);
-      console.log("Sign in successful:", result.user.email);
-    } catch (error: any) {
-      console.error("Error signing in:", error);
-      let msg = 'Failed to sign in.';
-      if (error.code === 'auth/popup-blocked') {
-        msg = 'Sign-in popup was blocked by your browser. Please allow popups for this site or open in a new tab.';
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        msg = 'Sign-in was cancelled.';
-      } else if (error.code === 'auth/unauthorized-domain') {
-        msg = 'This domain is not authorized for sign-in. Please contact the administrator.';
-      } else if (error.message) {
-        msg = `Error: ${error.message}`;
-      }
-      
-      // Fallback alert for iframe visibility issues
-      if (error.code === 'auth/popup-blocked') {
-        window.alert(msg);
-      }
-      
-      showNotification('error', msg);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Error signing out:", error);
-      showNotification('error', 'Failed to sign out.');
-    }
-  };
+  }, []);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -500,59 +441,6 @@ export default function App() {
     return { totalProd, totalRolls, totalKgs };
   }, [productionData]);
 
-  if (!isAuthReady) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <LayoutDashboard size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Production Manager</h1>
-          <p className="text-gray-500 mb-8">Sign in to access your dashboard</p>
-          
-          <div className="space-y-4">
-            <button
-              onClick={handleLogin}
-              disabled={isLoggingIn}
-              className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoggingIn ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-              )}
-              {isLoggingIn ? 'Signing in...' : 'Sign in with Google'}
-            </button>
-
-            <div className="pt-4 border-t border-gray-100">
-              <p className="text-sm text-gray-500 mb-3">Having trouble signing in?</p>
-              <button
-                onClick={() => window.open(window.location.href, '_blank')}
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center justify-center gap-2 mx-auto"
-              >
-                <ExternalLink size={16} />
-                Open in New Tab
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden">
       {/* Sidebar */}
@@ -615,22 +503,13 @@ export default function App() {
         <div className="p-4 border-t border-gray-100">
           <div className={cn("flex items-center gap-3", !isSidebarOpen && "justify-center")}>
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt={user.displayName || 'User'} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                (user?.displayName || user?.email || 'U').charAt(0).toUpperCase()
-              )}
+              <Users size={18} />
             </div>
             {isSidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user?.displayName || 'User'}</p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                <p className="text-sm font-medium truncate">Guest User</p>
+                <p className="text-xs text-gray-500 truncate">Public Access</p>
               </div>
-            )}
-            {isSidebarOpen && (
-              <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Sign out">
-                <LogOut size={18} />
-              </button>
             )}
           </div>
         </div>

@@ -2,44 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isValidProduction(data) {
-      return data.productionDate is string && data.productionDate.size() < 20 &&
-             data.shift in ['Day', 'Night'] &&
-             data.machineNo is string && data.machineNo.size() < 50 &&
-             data.operatorId is string && data.operatorId.size() < 50 &&
-             data.model is string && data.model.size() < 100 &&
-             data.productionQty is number && data.productionQty >= 0;
-    }
-
-    match /production/{docId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidProduction(request.resource.data);
-      allow update: if isAuthenticated() && isValidProduction(request.resource.data);
-      allow delete: if isAuthenticated();
-    }
-
-    match /wastage/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /breakdown/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /machines/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /operators/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /pendingOrders/{docId} {
-      allow read, write: if isAuthenticated();
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
