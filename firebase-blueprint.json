@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "production": {
+      "title": "Production Entry",
+      "description": "Production data for a specific shift and machine",
+      "type": "object",
+      "properties": {
+        "productionDate": { "type": "string", "format": "date" },
+        "shift": { "type": "string", "enum": ["Day", "Night"] },
+        "machineNo": { "type": "string" },
+        "machineName": { "type": "string" },
+        "operatorId": { "type": "string" },
+        "operatorName": { "type": "string" },
+        "piNo": { "type": "string" },
+        "model": { "type": "string" },
+        "description": { "type": "string" },
+        "material": { "type": "string" },
+        "thickness": { "type": "string" },
+        "productionQty": { "type": "number" },
+        "packetQty": { "type": "number" },
+        "meter": { "type": "number" },
+        "rollKgs": { "type": "number" },
+        "rollId": { "type": "string" },
+        "rollQty": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productionDate", "shift", "machineNo", "operatorId", "model", "productionQty"]
+    },
+    "wastage": {
+      "title": "Wastage Entry",
+      "description": "Wastage data for a specific shift and machine",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "shift": { "type": "string" },
+        "machineNo": { "type": "string" },
+        "wastageType": { "type": "string" },
+        "weight": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "breakdown": {
+      "title": "Breakdown Entry",
+      "description": "Machine breakdown data",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "shift": { "type": "string" },
+        "machineNo": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "machines": {
+      "title": "Machine Master",
+      "description": "Master list of machines",
+      "type": "object",
+      "properties": {
+        "machineNo": { "type": "string" },
+        "machineName": { "type": "string" }
+      }
+    },
+    "operators": {
+      "title": "Operator Master",
+      "description": "Master list of operators",
+      "type": "object",
+      "properties": {
+        "operatorId": { "type": "string" },
+        "operatorName": { "type": "string" }
+      }
+    },
+    "pendingOrders": {
+      "title": "Pending Order",
+      "description": "Pending orders for auto-fill",
+      "type": "object",
+      "properties": {
+        "piNo": { "type": "string" },
+        "model": { "type": "string" },
+        "description": { "type": "string" },
+        "material": { "type": "string" },
+        "thickness": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "production": { "schema": "production", "description": "Production records" },
+    "wastage": { "schema": "wastage", "description": "Wastage records" },
+    "breakdown": { "schema": "breakdown", "description": "Breakdown records" },
+    "machines": { "schema": "machines", "description": "Machine master list" },
+    "operators": { "schema": "operators", "description": "Operator master list" },
+    "pendingOrders": { "schema": "pendingOrders", "description": "Pending orders list" }
+  }
+}
