@@ -72,7 +72,7 @@ type Section = 'dashboard' | 'production' | 'wastage' | 'breakdown' | 'pending-o
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -130,6 +130,20 @@ export default function App() {
   const [breakdownSearchTerm, setBreakdownSearchTerm] = useState('');
   const [filterMachine, setFilterMachine] = useState('');
   const [filterShift, setFilterShift] = useState('');
+
+  // Sidebar Responsiveness
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Real-time listeners
   useEffect(() => {
@@ -495,11 +509,19 @@ export default function App() {
   }, [wastageData]);
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden relative">
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside className={cn(
-        "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col",
-        isSidebarOpen ? "w-64" : "w-20"
+        "fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col md:relative",
+        isSidebarOpen ? "w-64 translate-x-0" : "w-20 -translate-x-full md:translate-x-0"
       )}>
         <div className="p-6 flex items-center justify-between">
           {isSidebarOpen && <h1 className="font-bold text-xl tracking-tight text-blue-600">PROD MAN</h1>}
@@ -569,41 +591,61 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8 relative">
-        <AnimatePresence>
-          {notification && (
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className={cn(
-                "fixed top-8 right-8 z-50 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3",
-                notification.type === 'success' ? "bg-green-600 text-white" : "bg-red-600 text-white"
-              )}
-            >
-              {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-              <span className="font-medium">{notification.message}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight capitalize">{activeSection.replace('-', ' ')}</h2>
-            <p className="text-gray-500 mt-1">Manage your production operations efficiently.</p>
-          </div>
-          <div className="flex gap-4">
-            {activeSection !== 'dashboard' && (
-              <button 
-                onClick={exportToExcel}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+        <div className="max-w-7xl mx-auto">
+          <AnimatePresence>
+            {notification && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className={cn(
+                  "fixed top-4 right-4 left-4 md:left-auto md:top-8 md:right-8 z-50 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3",
+                  notification.type === 'success' ? "bg-green-600 text-white" : "bg-red-600 text-white"
+                )}
               >
-                <Download size={18} />
-                <span>Export</span>
-              </button>
+                {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+                <span className="font-medium">{notification.message}</span>
+              </motion.div>
             )}
-          </div>
-        </header>
+          </AnimatePresence>
+
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <button 
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                className="p-2 bg-white border border-gray-200 rounded-lg md:hidden"
+              >
+                <Menu size={20} />
+              </button>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight capitalize">{activeSection.replace('-', ' ')}</h2>
+                <p className="text-gray-500 text-sm mt-1">Manage your production operations efficiently.</p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-start sm:items-center">
+              {activeSection === 'production' && (
+                <div className="w-full sm:w-64">
+                  <InputGroup 
+                    label="Production Date" 
+                    type="date" 
+                    value={formData.productionDate} 
+                    onChange={v => setFormData({...formData, productionDate: v})} 
+                    required 
+                  />
+                </div>
+              )}
+              {activeSection !== 'dashboard' && (
+                <button 
+                  onClick={exportToExcel}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-sm h-[42px] self-end"
+                >
+                  <Download size={18} />
+                  <span>Export</span>
+                </button>
+              )}
+            </div>
+          </header>
 
         {activeSection === 'dashboard' && (
           <div className="space-y-8">
@@ -683,24 +725,24 @@ export default function App() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                  <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                     <tr>
-                      <th className="px-6 py-4 font-semibold">Date</th>
-                      <th className="px-6 py-4 font-semibold">Machine</th>
-                      <th className="px-6 py-4 font-semibold">Model</th>
-                      <th className="px-6 py-4 font-semibold">Qty</th>
-                      <th className="px-6 py-4 font-semibold">Status</th>
+                      <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                      <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
+                      <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Model</th>
+                      <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Qty</th>
+                      <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {productionData.slice(0, 5).map((entry) => (
                       <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm">{entry.productionDate}</td>
-                        <td className="px-6 py-4 text-sm font-medium">{entry.machineNo}</td>
-                        <td className="px-6 py-4 text-sm">{entry.model}</td>
-                        <td className="px-6 py-4 text-sm font-bold">{entry.productionQty}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.productionDate}</td>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{entry.machineNo}</td>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.model}</td>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.productionQty}</td>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-[10px] md:text-xs font-medium">Completed</span>
                         </td>
                       </tr>
                     ))}
@@ -715,48 +757,66 @@ export default function App() {
           {activeSection === 'production' && (
             <div className="space-y-12">
               <form onSubmit={handleSaveProduction} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <InputGroup label="Production Date" type="date" value={formData.productionDate} onChange={v => setFormData({...formData, productionDate: v})} required />
-                  <SelectGroup 
-                    label="Shift" 
-                    value={formData.shift || ''} 
-                    onChange={v => setFormData({...formData, shift: v as 'Day' | 'Night'})} 
-                    options={['Day', 'Night']} 
-                  />
-                  <SelectGroup 
-                    label="Machine No" 
-                    value={formData.machineNo || ''} 
-                    onChange={v => setFormData({...formData, machineNo: v})} 
-                    options={machines.map(m => m.machineNo)} 
-                    required
-                  />
-                  <SelectGroup 
-                    label="Operator ID" 
-                    value={formData.operatorId || ''} 
-                    onChange={v => setFormData({...formData, operatorId: v})} 
-                    options={operators.map(o => o.operatorId)} 
-                    required
-                  />
-                  <SelectGroup 
-                    label="PI No" 
-                    value={formData.piNo || ''} 
-                    onChange={v => setFormData({...formData, piNo: v})} 
-                    options={[...new Set(pendingOrders.map(o => o.piNo).filter(Boolean))] as string[]} 
-                  />
-                  <SelectGroup 
-                    label="Model" 
-                    value={formData.model || ''} 
-                    onChange={v => setFormData({...formData, model: v})} 
-                    options={[...new Set(pendingOrders.filter(o => !formData.piNo || o.piNo === formData.piNo).map(o => o.model).filter(Boolean))] as string[]} 
-                    required
-                  />
-                  <InputGroup label="Description" value={formData.description} disabled />
-                  <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Number(v)})} required />
-                  <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} />
-                  <InputGroup label="Meter" type="number" value={formData.meter} onChange={v => setFormData({...formData, meter: Number(v)})} />
-                  <InputGroup label="Roll Kgs" type="number" value={formData.rollKgs} onChange={v => setFormData({...formData, rollKgs: Number(v)})} />
-                  <InputGroup label="Roll ID" value={formData.rollId} onChange={v => setFormData({...formData, rollId: v})} />
-                  <InputGroup label="Roll Qty" type="number" value={formData.rollQty} onChange={v => setFormData({...formData, rollQty: Number(v)})} />
+                <div className="space-y-6">
+                  {/* Row 1: 3 Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <SelectGroup 
+                      label="Shift" 
+                      value={formData.shift || ''} 
+                      onChange={v => setFormData({...formData, shift: v as 'Day' | 'Night'})} 
+                      options={['Day', 'Night']} 
+                    />
+                    <SelectGroup 
+                      label="Machine No" 
+                      value={formData.machineNo || ''} 
+                      onChange={v => setFormData({...formData, machineNo: v})} 
+                      options={machines.map(m => m.machineNo)} 
+                      required
+                    />
+                    <SelectGroup 
+                      label="Operator ID" 
+                      value={formData.operatorId || ''} 
+                      onChange={v => setFormData({...formData, operatorId: v})} 
+                      options={operators.map(o => o.operatorId)} 
+                      required
+                    />
+                  </div>
+
+                  {/* Row 2: 2 Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <SelectGroup 
+                      label="PI No" 
+                      value={formData.piNo || ''} 
+                      onChange={v => setFormData({...formData, piNo: v})} 
+                      options={[...new Set(pendingOrders.map(o => o.piNo).filter(Boolean))] as string[]} 
+                    />
+                    <SelectGroup 
+                      label="Model" 
+                      value={formData.model || ''} 
+                      onChange={v => setFormData({...formData, model: v})} 
+                      options={[...new Set(pendingOrders.filter(o => !formData.piNo || o.piNo === formData.piNo).map(o => o.model).filter(Boolean))] as string[]} 
+                      required
+                    />
+                  </div>
+
+                  {/* Row 3: 1 Column (Description) */}
+                  <div className="grid grid-cols-1 gap-6">
+                    <InputGroup label="Description" value={formData.description} disabled />
+                  </div>
+
+                  {/* Row 4: 3 Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Number(v)})} required />
+                    <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} />
+                    <InputGroup label="Meter" type="number" value={formData.meter} onChange={v => setFormData({...formData, meter: Number(v)})} />
+                  </div>
+
+                  {/* Row 5: 3 Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <InputGroup label="Roll Kgs" type="number" value={formData.rollKgs} onChange={v => setFormData({...formData, rollKgs: Number(v)})} />
+                    <InputGroup label="Roll ID" value={formData.rollId} onChange={v => setFormData({...formData, rollId: v})} />
+                    <InputGroup label="Roll Qty" type="number" value={formData.rollQty} onChange={v => setFormData({...formData, rollQty: Number(v)})} />
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
@@ -808,40 +868,40 @@ export default function App() {
 
                 <div className="overflow-x-auto rounded-xl border border-gray-200">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                    <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                       <tr>
-                        <th className="px-6 py-4 font-semibold">Date</th>
-                        <th className="px-6 py-4 font-semibold">Shift</th>
-                        <th className="px-6 py-4 font-semibold">Machine No</th>
-                        <th className="px-6 py-4 font-semibold">Model</th>
-                        <th className="px-6 py-4 font-semibold">Qty</th>
-                        <th className="px-6 py-4 font-semibold">Operator</th>
-                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine No</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Model</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Qty</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Operator</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredData.map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 text-sm">{entry.productionDate}</td>
-                          <td className="px-6 py-4 text-sm">
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.productionDate}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">
                             <span className={cn(
-                              "px-2 py-1 rounded-full text-xs font-medium",
+                              "px-2 py-1 rounded-full text-[10px] md:text-xs font-medium",
                               entry.shift === 'Day' ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"
                             )}>
                               {entry.shift}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm font-medium">{entry.machineNo}</td>
-                          <td className="px-6 py-4 text-sm">{entry.model}</td>
-                          <td className="px-6 py-4 text-sm font-bold">{entry.productionQty}</td>
-                          <td className="px-6 py-4 text-sm text-gray-500">{entry.operatorId}</td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{entry.machineNo}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.model}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.productionQty}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500">{entry.operatorId}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-right">
                             <div className="flex justify-end gap-2">
-                              <button onClick={() => handleEdit(entry)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                <Edit size={18} />
+                              <button onClick={() => handleEdit(entry)} className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <Edit size={16} />
                               </button>
-                              <button onClick={() => handleDelete(entry.id!)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                <Trash2 size={18} />
+                              <button onClick={() => handleDelete(entry.id!)} className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <Trash2 size={16} />
                               </button>
                             </div>
                           </td>
@@ -998,14 +1058,14 @@ export default function App() {
                 </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-200">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                    <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                       <tr>
-                        <th className="px-6 py-4 font-semibold">Date</th>
-                        <th className="px-6 py-4 font-semibold">Shift</th>
-                        <th className="px-6 py-4 font-semibold">Machine</th>
-                        <th className="px-6 py-4 font-semibold">Type</th>
-                        <th className="px-6 py-4 font-semibold text-right">Weight</th>
-                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Type</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Weight</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1016,23 +1076,23 @@ export default function App() {
                         )
                         .map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 text-sm">{item.date}</td>
-                          <td className="px-6 py-4 text-sm">{item.shift}</td>
-                          <td className="px-6 py-4 text-sm font-medium">{item.machineNo}</td>
-                          <td className="px-6 py-4 text-sm">{item.wastageType}</td>
-                          <td className="px-6 py-4 text-sm text-right font-bold">{item.weight} Kgs</td>
-                          <td className="px-6 py-4 text-sm text-right">
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.wastageType}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right font-bold">{item.weight} Kgs</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
                                 onClick={() => handleEditWastage(item)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Edit"
                               >
                                 <Edit size={16} />
                               </button>
                               <button 
                                 onClick={() => handleDeleteWastage(item.id!)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
                               >
                                 <Trash2 size={16} />
@@ -1123,14 +1183,14 @@ export default function App() {
                 </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-200">
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                    <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                       <tr>
-                        <th className="px-6 py-4 font-semibold">Date</th>
-                        <th className="px-6 py-4 font-semibold">Shift</th>
-                        <th className="px-6 py-4 font-semibold">Machine</th>
-                        <th className="px-6 py-4 font-semibold">Reason</th>
-                        <th className="px-6 py-4 font-semibold">Duration</th>
-                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Reason</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Duration</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1141,23 +1201,23 @@ export default function App() {
                         )
                         .map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 text-sm">{item.date}</td>
-                          <td className="px-6 py-4 text-sm">{item.shift}</td>
-                          <td className="px-6 py-4 text-sm font-medium">{item.machineNo}</td>
-                          <td className="px-6 py-4 text-sm">{item.reason}</td>
-                          <td className="px-6 py-4 text-sm">{item.startTime} - {item.endTime}</td>
-                          <td className="px-6 py-4 text-sm text-right">
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.reason}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.startTime} - {item.endTime}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
                                 onClick={() => handleEditBreakdown(item)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Edit"
                               >
                                 <Edit size={16} />
                               </button>
                               <button 
                                 onClick={() => handleDeleteBreakdown(item.id!)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Delete"
                               >
                                 <Trash2 size={16} />
@@ -1178,8 +1238,9 @@ export default function App() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
+  </div>
   );
 }
 
@@ -1188,7 +1249,7 @@ function NavItem({ icon, label, active, onClick, collapsed }: { icon: React.Reac
     <button 
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+        "w-full flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 rounded-xl transition-all duration-200 group",
         active 
           ? "bg-blue-50 text-blue-600 font-semibold shadow-sm shadow-blue-100" 
           : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
@@ -1208,11 +1269,11 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode, label:
     red: "bg-red-50 border-red-100 text-red-600",
   };
   return (
-    <div className={cn("p-6 rounded-2xl border flex items-center gap-4 shadow-sm transition-transform hover:scale-[1.02]", colors[color as keyof typeof colors].split(' ')[0], colors[color as keyof typeof colors].split(' ')[1])}>
-      <div className="p-3 bg-white rounded-xl shadow-sm">{icon}</div>
+    <div className={cn("p-4 md:p-6 rounded-2xl border flex items-center gap-3 md:gap-4 shadow-sm transition-transform hover:scale-[1.02]", colors[color as keyof typeof colors].split(' ')[0], colors[color as keyof typeof colors].split(' ')[1])}>
+      <div className="p-2.5 md:p-3 bg-white rounded-xl shadow-sm">{icon}</div>
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-bold mt-1 text-gray-900">{value}</p>
+        <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
+        <p className="text-lg md:text-2xl font-bold mt-0.5 md:mt-1 text-gray-900">{value}</p>
       </div>
     </div>
   );
@@ -1220,8 +1281,8 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode, label:
 
 function InputGroup({ label, type = "text", value, onChange, required, disabled, className, placeholder }: { label: string, type?: string, value: any, onChange?: (v: string) => void, required?: boolean, disabled?: boolean, className?: string, placeholder?: string }) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+    <div className="space-y-1.5">
+      <label className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1">
         {label}
         {required && <span className="text-red-500">*</span>}
       </label>
@@ -1233,7 +1294,7 @@ function InputGroup({ label, type = "text", value, onChange, required, disabled,
         disabled={disabled}
         placeholder={placeholder}
         className={cn(
-          "w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all",
+          "w-full px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm md:text-base",
           disabled && "opacity-60 cursor-not-allowed bg-gray-100",
           className
         )}
@@ -1260,14 +1321,14 @@ function SelectGroup({ label, value, onChange, options, required }: { label: str
   const filteredOptions = options.filter(opt => opt.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="space-y-2 relative" ref={dropdownRef}>
-      <label className="text-sm font-semibold text-gray-700 flex items-center gap-1">
+    <div className="space-y-1.5 relative" ref={dropdownRef}>
+      <label className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1">
         {label}
         {required && <span className="text-red-500">*</span>}
       </label>
       <div 
         className={cn(
-          "w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer flex justify-between items-center transition-all",
+          "w-full px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer flex justify-between items-center transition-all text-sm md:text-base",
           isOpen ? "ring-2 ring-blue-500 border-transparent" : "hover:border-gray-300"
         )}
         onClick={() => setIsOpen(!isOpen)}
@@ -1461,14 +1522,14 @@ function MasterSection({ title, icon, data, onAdd, onDelete, placeholder }: { ti
         <input 
           type="text" 
           placeholder={placeholder}
-          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+          className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
           value={val}
           onChange={e => setVal(e.target.value)}
           onKeyDown={e => { if(e.key === 'Enter' && val) { onAdd(val); setVal(''); } }}
         />
         <button 
           onClick={() => { if(val) { onAdd(val); setVal(''); } }}
-          className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm shadow-sm"
+          className="px-3 py-2 md:px-4 md:py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm md:text-base shadow-sm"
         >
           Add
         </button>
