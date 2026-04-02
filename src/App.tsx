@@ -1,4 +1,4 @@
-import React, { Component, useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -54,7 +54,8 @@ import {
   orderBy, 
   serverTimestamp,
   writeBatch,
-  getDocFromServer
+  getDocFromServer,
+  getDocs
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet } from './utils';
@@ -72,6 +73,9 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
+  public state: any;
+  public props: any;
+
   constructor(props: any) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -86,15 +90,16 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 
   render() {
-    if (this.state.hasError) {
+    const { hasError, error } = this.state;
+    if (hasError) {
       let errorMessage = "Something went wrong.";
       try {
-        const parsedError = JSON.parse(this.state.error.message);
+        const parsedError = JSON.parse(error.message);
         if (parsedError.error && parsedError.error.includes("insufficient permissions")) {
           errorMessage = "You do not have permission to perform this action. Please check your role or contact an administrator.";
         }
       } catch (e) {
-        errorMessage = this.state.error?.message || errorMessage;
+        errorMessage = error?.message || errorMessage;
       }
 
       return (
@@ -497,35 +502,52 @@ function AppContent() {
 
       setIsLoading(true);
       try {
-        // Clear old pending orders first
-        const batch = writeBatch(db);
-        pendingOrders.forEach(order => {
-          batch.delete(doc(db, 'pendingOrders', order.id!));
-        });
-        await batch.commit();
-
-        for (const order of data) {
-          // Normalize keys to lowercase and remove all non-alphanumeric characters
-          const normalizedOrder: any = {};
-          Object.keys(order).forEach(key => {
-            normalizedOrder[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = order[key];
-          });
-
-          const getVal = (keys: string[]) => {
-            for (const k of keys) {
-              if (normalizedOrder[k] !== undefined && normalizedOrder[k] !== null) {
-                return String(normalizedOrder[k]);
-              }
-            }
-            return '';
-          };
-
-          await addDoc(collection(db, 'pendingOrders'), {
-            piNo: getVal(['pino', 'pi', 'pinumber']),
-            model: getVal(['model', 'modelno', 'modelnumber']),
-            description: getVal(['description', 'desc']),
-          });
+        // Clear old pending orders first - fetch directly from DB to ensure we get everything
+        const q = query(collection(db, 'pendingOrders'));
+        const snapshot = await getDocs(q);
+        
+        // Delete in batches of 400
+        const docsToDelete = snapshot.docs;
+        for (let i = 0; i < docsToDelete.length; i += 400) {
+          const chunk = docsToDelete.slice(i, i + 400);
+          const deleteBatch = writeBatch(db);
+          chunk.forEach(doc => deleteBatch.delete(doc.ref));
+          await deleteBatch.commit();
         }
+
+        // Add new orders in chunks (Firestore batches are limited to 500 operations)
+        const CHUNK_SIZE = 400;
+        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+          const chunk = data.slice(i, i + CHUNK_SIZE);
+          const addBatch = writeBatch(db);
+          
+          for (const order of chunk) {
+            // Normalize keys to lowercase and remove all non-alphanumeric characters
+            const normalizedOrder: any = {};
+            Object.keys(order).forEach(key => {
+              normalizedOrder[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = order[key];
+            });
+
+            const getVal = (keys: string[]) => {
+              for (const k of keys) {
+                if (normalizedOrder[k] !== undefined && normalizedOrder[k] !== null) {
+                  return String(normalizedOrder[k]);
+                }
+              }
+              return '';
+            };
+
+            const newOrderRef = doc(collection(db, 'pendingOrders'));
+            addBatch.set(newOrderRef, {
+              piNo: getVal(['pino', 'pi', 'pinumber']),
+              model: getVal(['model', 'modelno', 'modelnumber']),
+              description: getVal(['description', 'desc']),
+              createdAt: serverTimestamp()
+            });
+          }
+          await addBatch.commit();
+        }
+        
         showNotification('success', `Uploaded ${data.length} orders!`);
       } catch (error) {
         console.error("Upload error:", error);
