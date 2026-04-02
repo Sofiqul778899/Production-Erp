@@ -136,12 +136,14 @@ export default function App() {
 }
 
 function AppContent() {
+  console.log("Rendering AppContent...");
   const [user, setUser] = useState<User | null>(null);
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [authTimeout, setAuthTimeout] = useState(false);
 
   // Data States
   const [productionData, setProductionData] = useState<ProductionEntry[]>([]);
@@ -214,19 +216,31 @@ function AppContent() {
 
   // Auth Listener
   useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isAuthReady) setAuthTimeout(true);
+    }, 10000); // 10s timeout
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log("Auth state changed:", user ? "User logged in" : "No user");
       setUser(user);
       setIsAuthReady(true);
+      clearTimeout(timer);
     });
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
+  }, [isAuthReady]);
 
   // Connection Test
   useEffect(() => {
     async function testConnection() {
+      console.log("Testing Firestore connection...");
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection successful!");
       } catch (error) {
+        console.error("Firestore connection test failed:", error);
         if(error instanceof Error && error.message.includes('the client is offline')) {
           console.error("Please check your Firebase configuration. ");
         }
@@ -243,8 +257,12 @@ function AppContent() {
 
     const qProduction = query(collection(db, 'production'), orderBy('createdAt', 'desc'));
     const unsubProduction = onSnapshot(qProduction, (snapshot) => {
+      console.log("Production data updated:", snapshot.size, "docs");
       setProductionData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductionEntry)));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'production'));
+    }, (error) => {
+      console.error("Production listener error:", error);
+      handleFirestoreError(error, OperationType.GET, 'production');
+    });
 
     const unsubWastage = onSnapshot(collection(db, 'wastage'), (snapshot) => {
       setWastageData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WastageEntry)));
@@ -277,9 +295,12 @@ function AppContent() {
   }, [isAuthReady, user]);
 
   const handleLogin = async () => {
+    console.log("Attempting login...");
+    setIsLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      console.log("Login success:", result.user.email);
     } catch (error: any) {
       console.error("Login failed", error);
       let message = 'Login failed. Please try again.';
@@ -289,6 +310,8 @@ function AppContent() {
         message = 'Login popup was blocked by your browser. Please allow popups for this site.';
       }
       showNotification('error', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -307,6 +330,7 @@ function AppContent() {
 
   const handleSaveProduction = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Saving production entry:", formData);
     setIsLoading(true);
 
     try {
@@ -371,12 +395,14 @@ function AppContent() {
   };
 
   const handleEdit = (entry: ProductionEntry) => {
+    console.log("Editing production entry:", entry.id);
     setFormData(entry);
     setEditingId(entry.id || null);
     setActiveSection('production');
   };
 
   const handleDelete = async (id: string) => {
+    console.log("Deleting production entry:", id);
     if (confirm('Are you sure you want to delete this entry?')) {
       try {
         await deleteDoc(doc(db, 'production', id));
@@ -390,6 +416,7 @@ function AppContent() {
 
   const handleSaveWastage = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Saving wastage entry:", wastageForm);
     setIsLoading(true);
     try {
       if (editingWastageId) {
@@ -424,6 +451,7 @@ function AppContent() {
   };
 
   const handleEditWastage = (entry: WastageEntry) => {
+    console.log("Editing wastage entry:", entry.id);
     setWastageForm(entry);
     setEditingWastageId(entry.id || null);
   };
@@ -442,6 +470,7 @@ function AppContent() {
 
   const handleSaveBreakdown = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Saving breakdown entry:", breakdownForm);
     setIsLoading(true);
     try {
       if (editingBreakdownId) {
@@ -477,6 +506,7 @@ function AppContent() {
   };
 
   const handleEditBreakdown = (entry: BreakdownEntry) => {
+    console.log("Editing breakdown entry:", entry.id);
     setBreakdownForm(entry);
     setEditingBreakdownId(entry.id || null);
   };
@@ -496,6 +526,7 @@ function AppContent() {
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    console.log("Starting Excel upload for file:", file.name);
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -569,6 +600,7 @@ function AppContent() {
   };
 
   const exportToExcel = () => {
+    console.log("Exporting production data to Excel...");
     const ws = XLSX.utils.json_to_sheet(productionData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Production");
@@ -651,8 +683,19 @@ function AppContent() {
 
   if (!isAuthReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
         <Loader2 className="animate-spin text-blue-600" size={48} />
+        {authTimeout && (
+          <div className="text-center space-y-4 max-w-xs">
+            <div className="space-y-2">
+              <p className="text-gray-500 font-medium">Connecting to Firebase...</p>
+              <p className="text-xs text-gray-400">If this takes too long, please check your internet connection or Firebase configuration.</p>
+            </div>
+            <div className="p-3 bg-gray-100 rounded-lg text-[10px] font-mono text-gray-500 break-all text-left">
+              Project ID: production-management-pro
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -671,10 +714,17 @@ function AppContent() {
           
           <button 
             onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
           >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-            Sign in with Google
+            {isLoading ? (
+              <Loader2 className="animate-spin text-blue-600" size={20} />
+            ) : (
+              <>
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+                Sign in with Google
+              </>
+            )}
           </button>
           
           <p className="text-xs text-gray-400">

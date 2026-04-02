@@ -125,6 +125,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Connection Test Collection
+    match /test/{id} {
+      allow read: if isAuthenticated();
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;

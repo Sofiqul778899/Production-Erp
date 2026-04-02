@@ -50,8 +50,9 @@ export interface FirestoreErrorInfo {
 export const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxClsuQ0x0V7E6pshmJu5PPQf58X5Z11aVcdvvD5ITmSghE7iIS_JMc6h2M5IZtYK1j/exec';
 
 export async function syncToGoogleSheet(data: any) {
+  console.log("Syncing to Google Sheets:", data);
   try {
-    await fetch(GOOGLE_SHEET_URL, {
+    const response = await fetch(GOOGLE_SHEET_URL, {
       method: 'POST',
       mode: 'no-cors', // Apps Script requires no-cors for simple POSTs
       headers: {
@@ -59,30 +60,38 @@ export async function syncToGoogleSheet(data: any) {
       },
       body: JSON.stringify(data),
     });
+    console.log("Google Sheet sync sent (no-cors mode)");
   } catch (error) {
     console.error('Failed to sync to Google Sheets:', error);
   }
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
+      userId: auth.currentUser?.uid || 'not-authenticated',
+      email: auth.currentUser?.email || 'no-email',
+      emailVerified: auth.currentUser?.emailVerified || false,
+      isAnonymous: auth.currentUser?.isAnonymous || false,
+      tenantId: auth.currentUser?.tenantId || '',
       providerInfo: auth.currentUser?.providerData.map(provider => ({
         providerId: provider.providerId,
-        displayName: provider.displayName,
-        email: provider.email,
-        photoUrl: provider.photoURL
+        displayName: provider.displayName || '',
+        email: provider.email || '',
+        photoUrl: provider.photoURL || ''
       })) || []
     },
     operationType,
     path
+  };
+
+  console.error('Firestore Error:', JSON.stringify(errInfo));
+  
+  // If it's a permission error, throw it so the ErrorBoundary can catch it
+  if (errMessage.toLowerCase().includes('permission') || errMessage.toLowerCase().includes('insufficient')) {
+    throw new Error(JSON.stringify(errInfo));
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
 }
