@@ -47,6 +47,23 @@ export interface FirestoreErrorInfo {
   }
 }
 
+export const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxClsuQ0x0V7E6pshmJu5PPQf58X5Z11aVcdvvD5ITmSghE7iIS_JMc6h2M5IZtYK1j/exec';
+
+export async function syncToGoogleSheet(data: any) {
+  try {
+    await fetch(GOOGLE_SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors', // Apps Script requires no-cors for simple POSTs
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    console.error('Failed to sync to Google Sheets:', error);
+  }
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),

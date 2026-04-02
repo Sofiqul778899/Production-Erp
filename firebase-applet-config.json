@@ -1,8 +1,10 @@
 {
-  "projectId": "production-management-pro",
-  "appId": "1:470661384860:web:b17dbe269e2eef71b27b59",
-  "apiKey": "AIzaSyBl07_Ubjqy4gZIx10urTm9ahWnHzcyCIM",
-  "authDomain": "production-management-pro.firebaseapp.com",
-  "storageBucket": "production-management-pro.firebasestorage.app",
-  "messagingSenderId": "470661384860"
+  "projectId": "project-1d4ba8de-19ba-41bf-853",
+  "appId": "1:495084034891:web:75417b8270ad1cfaf666ce",
+  "apiKey": "AIzaSyBvMWiLWUUjYkfPBJeTuM5ecfQzN1Y_Sz0",
+  "authDomain": "project-1d4ba8de-19ba-41bf-853.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-12d5a9f6-19db-48e5-b30d-3aac4d6b9387",
+  "storageBucket": "project-1d4ba8de-19ba-41bf-853.firebasestorage.app",
+  "messagingSenderId": "495084034891",
+  "measurementId": ""
 }

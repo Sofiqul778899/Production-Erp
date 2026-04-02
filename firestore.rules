@@ -1,208 +1,131 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     // ===============================================================
     // Assumed Data Model
     // ===============================================================
     //
     // Collection: production
     // Fields:
-    //   - productionDate: string (required, date format)
+    //   - productionDate: string (required)
     //   - shift: string (required, enum: Day, Night)
     //   - machineNo: string (required)
-    //   - operatorId: string (optional)
-    //   - piNo: string (optional)
+    //   - operatorId: string (required)
     //   - model: string (required)
-    //   - description: string (optional)
     //   - productionQty: number (required)
-    //   - packetQty: number (optional)
-    //   - meter: number (optional)
-    //   - rollKgs: number (optional)
-    //   - rollId: string (optional)
-    //   - rollQty: number (optional)
-    //   - createdAt: timestamp (optional)
+    //   - createdAt: timestamp (required)
     //
     // Collection: wastage
     // Fields:
-    //   - date: string (required, date format)
-    //   - shift: string (required, enum: Day, Night)
+    //   - date: string (required)
+    //   - shift: string (required)
     //   - machineNo: string (required)
     //   - wastageType: string (required)
     //   - weight: number (required)
-    //   - createdAt: timestamp (optional)
+    //   - createdAt: timestamp (required)
     //
     // Collection: breakdown
     // Fields:
-    //   - date: string (required, date format)
-    //   - shift: string (required, enum: Day, Night)
+    //   - date: string (required)
+    //   - shift: string (required)
     //   - machineNo: string (required)
     //   - startTime: string (required)
     //   - endTime: string (required)
     //   - reason: string (required)
-    //   - createdAt: timestamp (optional)
+    //   - createdAt: timestamp (required)
     //
-    // Collection: machines
-    // Fields:
-    //   - machineNo: string (required)
-    //   - machineName: string (optional)
-    //
-    // Collection: operators
-    // Fields:
-    //   - operatorId: string (required)
-    //   - operatorName: string (optional)
-    //
-    // Collection: pendingOrders
-    // Fields:
-    //   - piNo: string (required)
-    //   - model: string (required)
-    //   - description: string (optional)
+    // Collection: machines, operators, pendingOrders
+    // Master data collections.
     //
     // ===============================================================
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "datafusion611@gmail.com" && request.auth.token.email_verified == true);
+    }
 
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
     }
 
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    function isValidString(field, maxLen) {
-      return request.resource.data[field] is string && request.resource.data[field].size() <= maxLen;
-    }
-
-    function isValidOptionalString(field, maxLen) {
-      return !(field in request.resource.data) || (request.resource.data[field] is string && request.resource.data[field].size() <= maxLen);
-    }
-
-    function isValidNumber(field) {
-      return request.resource.data[field] is number;
-    }
-
-    function isValidOptionalNumber(field) {
-      return !(field in request.resource.data) || request.resource.data[field] is number;
-    }
-
-    function isValidShift(field) {
-      return request.resource.data[field] in ['Day', 'Night'];
-    }
-
-    function isValidDate(field) {
-      return request.resource.data[field] is string && request.resource.data[field].matches("^\\d{4}-\\d{2}-\\d{2}$");
-    }
-
-    // ===============================================================
-    // Domain Validators
-    // ===============================================================
-
     function isValidProduction(data) {
-      let required = ['productionDate', 'shift', 'machineNo', 'model', 'productionQty'];
-      let allowed = ['productionDate', 'shift', 'machineNo', 'operatorId', 'piNo', 'model', 'description', 'productionQty', 'packetQty', 'meter', 'rollKgs', 'rollId', 'rollQty', 'createdAt', 'updatedAt'];
-      return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
-             isValidDate('productionDate') && isValidShift('shift') &&
-             isValidString('machineNo', 50) && isValidString('model', 100) &&
-             isValidNumber('productionQty') &&
-             isValidOptionalString('operatorId', 50) && isValidOptionalString('piNo', 50) &&
-             isValidOptionalString('description', 500) && isValidOptionalNumber('packetQty') &&
-             isValidOptionalNumber('meter') && isValidOptionalNumber('rollKgs') &&
-             isValidOptionalString('rollId', 50) && isValidOptionalNumber('rollQty');
+      return data.productionDate is string &&
+             data.shift in ['Day', 'Night'] &&
+             data.machineNo is string &&
+             data.operatorId is string &&
+             data.model is string &&
+             data.productionQty is number &&
+             data.productionQty >= 0;
     }
 
     function isValidWastage(data) {
-      let required = ['date', 'shift', 'machineNo', 'wastageType', 'weight'];
-      let allowed = ['date', 'shift', 'machineNo', 'wastageType', 'weight', 'createdAt', 'updatedAt'];
-      return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
-             isValidDate('date') && isValidShift('shift') &&
-             isValidString('machineNo', 50) && isValidString('wastageType', 100) &&
-             isValidNumber('weight');
+      return data.date is string &&
+             data.shift in ['Day', 'Night'] &&
+             data.machineNo is string &&
+             data.wastageType is string &&
+             data.weight is number &&
+             data.weight >= 0;
     }
 
     function isValidBreakdown(data) {
-      let required = ['date', 'shift', 'machineNo', 'startTime', 'endTime', 'reason'];
-      let allowed = ['date', 'shift', 'machineNo', 'startTime', 'endTime', 'reason', 'createdAt', 'updatedAt'];
-      return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
-             isValidDate('date') && isValidShift('shift') &&
-             isValidString('machineNo', 50) && isValidString('startTime', 20) &&
-             isValidString('endTime', 20) && isValidString('reason', 500);
-    }
-
-    function isValidMachine(data) {
-      let required = ['machineNo'];
-      let allowed = ['machineNo', 'machineName'];
-      return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
-             isValidString('machineNo', 50) && isValidOptionalString('machineName', 100);
-    }
-
-    function isValidOperator(data) {
-      let required = ['operatorId'];
-      let allowed = ['operatorId', 'operatorName'];
-      return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
-             isValidString('operatorId', 50) && isValidOptionalString('operatorName', 100);
-    }
-
-    function isValidPendingOrder(data) {
-      let required = ['piNo', 'model'];
-      let allowed = ['piNo', 'model', 'description'];
-      return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
-             isValidString('piNo', 50) && isValidString('model', 100) &&
-             isValidOptionalString('description', 500);
+      return data.date is string &&
+             data.shift in ['Day', 'Night'] &&
+             data.machineNo is string &&
+             data.startTime is string &&
+             data.endTime is string &&
+             data.reason is string;
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
 
-    // The user explicitly requested to remove the login system.
-    // Therefore, we allow unauthenticated read/write access but with strict validation.
-
+    // Production Entries
     match /production/{id} {
-      allow read: if true;
-      allow create: if isValidProduction(request.resource.data);
-      allow update: if isValidProduction(request.resource.data);
-      allow delete: if true;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasRequiredFields(['productionDate', 'shift', 'machineNo', 'operatorId', 'model', 'productionQty', 'createdAt']) && isValidProduction(request.resource.data);
+      allow update: if isAuthenticated() && isValidProduction(request.resource.data);
+      allow delete: if isAdmin();
     }
 
+    // Wastage Entries
     match /wastage/{id} {
-      allow read: if true;
-      allow create: if isValidWastage(request.resource.data);
-      allow update: if isValidWastage(request.resource.data);
-      allow delete: if true;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'wastageType', 'weight', 'createdAt']) && isValidWastage(request.resource.data);
+      allow update: if isAuthenticated() && isValidWastage(request.resource.data);
+      allow delete: if isAdmin();
     }
 
+    // Breakdown Entries
     match /breakdown/{id} {
-      allow read: if true;
-      allow create: if isValidBreakdown(request.resource.data);
-      allow update: if isValidBreakdown(request.resource.data);
-      allow delete: if true;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'startTime', 'endTime', 'reason', 'createdAt']) && isValidBreakdown(request.resource.data);
+      allow update: if isAuthenticated() && isValidBreakdown(request.resource.data);
+      allow delete: if isAdmin();
     }
 
+    // Master Data (Machines, Operators, PendingOrders)
     match /machines/{id} {
-      allow read: if true;
-      allow create: if isValidMachine(request.resource.data);
-      allow update: if isValidMachine(request.resource.data);
-      allow delete: if true;
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-
     match /operators/{id} {
-      allow read: if true;
-      allow create: if isValidOperator(request.resource.data);
-      allow update: if isValidOperator(request.resource.data);
-      allow delete: if true;
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-
     match /pendingOrders/{id} {
-      allow read: if true;
-      allow create: if isValidPendingOrder(request.resource.data);
-      allow update: if isValidPendingOrder(request.resource.data);
-      allow delete: if true;
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
-    // Default deny for everything else
+    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }

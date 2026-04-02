@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { Component, useState, useEffect, useMemo } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -53,10 +53,12 @@ import {
   query, 
   orderBy, 
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  getDocFromServer
 } from 'firebase/firestore';
-import { db } from './firebase';
-import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType } from './utils';
+import { db, auth } from './firebase';
+import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet } from './utils';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import type { 
   ProductionEntry, 
   WastageEntry,
@@ -68,13 +70,73 @@ import type {
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component<any, any> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      let errorMessage = "Something went wrong.";
+      try {
+        const parsedError = JSON.parse(this.state.error.message);
+        if (parsedError.error && parsedError.error.includes("insufficient permissions")) {
+          errorMessage = "You do not have permission to perform this action. Please check your role or contact an administrator.";
+        }
+      } catch (e) {
+        errorMessage = this.state.error?.message || errorMessage;
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-6 border border-red-100">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle size={32} />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">Application Error</h2>
+            <p className="text-gray-600">{errorMessage}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+            >
+              Reload Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 type Section = 'dashboard' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
+  const [user, setUser] = useState<User | null>(null);
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Data States
   const [productionData, setProductionData] = useState<ProductionEntry[]>([]);
@@ -145,8 +207,35 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Connection Test
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. ");
+        }
+      }
+    }
+    if (isAuthReady && user) {
+      testConnection();
+    }
+  }, [isAuthReady, user]);
+
   // Real-time listeners
   useEffect(() => {
+    if (!isAuthReady || !user) return;
+
     const qProduction = query(collection(db, 'production'), orderBy('createdAt', 'desc'));
     const unsubProduction = onSnapshot(qProduction, (snapshot) => {
       setProductionData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductionEntry)));
@@ -180,7 +269,25 @@ export default function App() {
       unsubOperators();
       unsubPending();
     };
-  }, []);
+  }, [isAuthReady, user]);
+
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+      showNotification('error', 'Login failed. Please try again.');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -212,12 +319,14 @@ export default function App() {
           ...formData,
           updatedAt: serverTimestamp()
         });
+        await syncToGoogleSheet({ ...formData, type: 'Production Update' });
         showNotification('success', 'Entry updated successfully!');
       } else {
         await addDoc(collection(db, 'production'), {
           ...formData,
           createdAt: serverTimestamp()
         });
+        await syncToGoogleSheet({ ...formData, type: 'Production New' });
         showNotification('success', 'Entry saved successfully!');
       }
 
@@ -277,12 +386,14 @@ export default function App() {
           ...wastageForm,
           updatedAt: serverTimestamp()
         });
+        await syncToGoogleSheet({ ...wastageForm, type: 'Wastage Update' });
         showNotification('success', 'Wastage entry updated!');
       } else {
         await addDoc(collection(db, 'wastage'), {
           ...wastageForm,
           createdAt: serverTimestamp()
         });
+        await syncToGoogleSheet({ ...wastageForm, type: 'Wastage New' });
         showNotification('success', 'Wastage entry saved!');
       }
       setWastageForm({
@@ -327,12 +438,14 @@ export default function App() {
           ...breakdownForm,
           updatedAt: serverTimestamp()
         });
+        await syncToGoogleSheet({ ...breakdownForm, type: 'Breakdown Update' });
         showNotification('success', 'Breakdown entry updated!');
       } else {
         await addDoc(collection(db, 'breakdown'), {
           ...breakdownForm,
           createdAt: serverTimestamp()
         });
+        await syncToGoogleSheet({ ...breakdownForm, type: 'Breakdown New' });
         showNotification('success', 'Breakdown entry saved!');
       }
       setBreakdownForm({
@@ -508,6 +621,42 @@ export default function App() {
     return Object.entries(types).map(([name, value]) => ({ name, value }));
   }, [wastageData]);
 
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-8 border border-gray-100">
+          <div className="space-y-2">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <LayoutDashboard size={32} />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Production Management Pro</h1>
+            <p className="text-gray-500">Sign in to manage your production records</p>
+          </div>
+          
+          <button 
+            onClick={handleLogin}
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+            Sign in with Google
+          </button>
+          
+          <p className="text-xs text-gray-400">
+            Securely managed by Firebase Authentication
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden relative">
       {/* Sidebar Overlay for Mobile */}
@@ -575,18 +724,32 @@ export default function App() {
           />
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 space-y-4">
           <div className={cn("flex items-center gap-3", !isSidebarOpen && "justify-center")}>
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-              <Users size={18} />
-            </div>
+            {user.photoURL ? (
+              <img src={user.photoURL} className="w-8 h-8 rounded-full border border-gray-200" alt="User" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+                <Users size={18} />
+              </div>
+            )}
             {isSidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Guest User</p>
-                <p className="text-xs text-gray-500 truncate">Public Access</p>
+                <p className="text-sm font-bold truncate">{user.displayName || 'User'}</p>
+                <p className="text-xs text-gray-500 truncate">{user.email}</p>
               </div>
             )}
           </div>
+          <button 
+            onClick={handleLogout}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all text-sm font-semibold",
+              !isSidebarOpen && "justify-center px-0"
+            )}
+          >
+            <LogOut size={18} />
+            {isSidebarOpen && <span>Logout</span>}
+          </button>
         </div>
       </aside>
 

@@ -2,93 +2,94 @@
   "entities": {
     "ProductionEntry": {
       "title": "Production Entry",
-      "description": "A record of production for a specific machine, shift, and model.",
+      "description": "Record of daily production activity.",
       "type": "object",
       "properties": {
-        "productionDate": { "type": "string", "format": "date", "description": "The date of production." },
-        "shift": { "type": "string", "enum": ["Day", "Night"], "description": "The shift (Day or Night)." },
-        "machineNo": { "type": "string", "description": "The machine number." },
-        "operatorId": { "type": "string", "description": "The operator ID." },
-        "piNo": { "type": "string", "description": "The PI number." },
-        "model": { "type": "string", "description": "The model name/number." },
-        "description": { "type": "string", "description": "Description of the product." },
+        "productionDate": { "type": "string", "format": "date", "description": "Date of production." },
+        "shift": { "type": "string", "enum": ["Day", "Night"], "description": "Shift of production." },
+        "machineNo": { "type": "string", "description": "Machine identifier." },
+        "operatorId": { "type": "string", "description": "Operator identifier." },
+        "piNo": { "type": "string", "description": "Production Instruction number." },
+        "model": { "type": "string", "description": "Model identifier." },
+        "description": { "type": "string", "description": "Description of the model." },
+        "material": { "type": "string", "description": "Material used." },
+        "thickness": { "type": "string", "description": "Thickness of the material." },
         "productionQty": { "type": "number", "description": "Quantity produced." },
         "packetQty": { "type": "number", "description": "Number of packets." },
         "meter": { "type": "number", "description": "Total meters produced." },
-        "rollKgs": { "type": "number", "description": "Weight in kilograms." },
-        "rollId": { "type": "string", "description": "ID of the roll." },
+        "rollKgs": { "type": "number", "description": "Weight of the roll in Kgs." },
+        "rollId": { "type": "string", "description": "Roll identifier." },
         "rollQty": { "type": "number", "description": "Quantity per roll." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the record was created." }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when record was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Timestamp when record was last updated." }
       },
-      "required": ["productionDate", "shift", "machineNo", "model", "productionQty"]
+      "required": ["productionDate", "shift", "machineNo", "operatorId", "model", "productionQty"]
     },
     "WastageEntry": {
       "title": "Wastage Entry",
-      "description": "A record of wastage for a specific machine and shift.",
+      "description": "Record of material wastage.",
       "type": "object",
       "properties": {
-        "date": { "type": "string", "format": "date", "description": "The date of wastage." },
-        "shift": { "type": "string", "enum": ["Day", "Night"], "description": "The shift." },
-        "machineNo": { "type": "string", "description": "The machine number." },
-        "wastageType": { "type": "string", "description": "Type of wastage (e.g., Setup, Edge Trim)." },
-        "weight": { "type": "number", "description": "Weight of wastage in kgs." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the record was created." }
+        "date": { "type": "string", "format": "date", "description": "Date of wastage." },
+        "shift": { "type": "string", "enum": ["Day", "Night"], "description": "Shift of wastage." },
+        "machineNo": { "type": "string", "description": "Machine identifier." },
+        "wastageType": { "type": "string", "description": "Type of wastage." },
+        "weight": { "type": "number", "description": "Weight of wastage in Kgs." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when record was created." }
       },
       "required": ["date", "shift", "machineNo", "wastageType", "weight"]
     },
     "BreakdownEntry": {
       "title": "Breakdown Entry",
-      "description": "A record of machine breakdown.",
+      "description": "Record of machine breakdown.",
       "type": "object",
       "properties": {
-        "date": { "type": "string", "format": "date", "description": "The date of breakdown." },
-        "shift": { "type": "string", "enum": ["Day", "Night"], "description": "The shift." },
-        "machineNo": { "type": "string", "description": "The machine number." },
+        "date": { "type": "string", "format": "date", "description": "Date of breakdown." },
+        "shift": { "type": "string", "enum": ["Day", "Night"], "description": "Shift of breakdown." },
+        "machineNo": { "type": "string", "description": "Machine identifier." },
         "startTime": { "type": "string", "description": "Start time of breakdown." },
         "endTime": { "type": "string", "description": "End time of breakdown." },
         "reason": { "type": "string", "description": "Reason for breakdown." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when the record was created." }
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when record was created." }
       },
       "required": ["date", "shift", "machineNo", "startTime", "endTime", "reason"]
     },
     "Machine": {
       "title": "Machine",
-      "description": "A machine in the factory.",
+      "description": "Machine master data.",
       "type": "object",
       "properties": {
-        "machineNo": { "type": "string", "description": "The machine number." },
-        "machineName": { "type": "string", "description": "The machine name." }
+        "machineNo": { "type": "string", "description": "Machine identifier." }
       },
       "required": ["machineNo"]
     },
     "Operator": {
       "title": "Operator",
-      "description": "A machine operator.",
+      "description": "Operator master data.",
       "type": "object",
       "properties": {
-        "operatorId": { "type": "string", "description": "The operator ID." },
-        "operatorName": { "type": "string", "description": "The operator name." }
+        "operatorId": { "type": "string", "description": "Operator identifier." }
       },
       "required": ["operatorId"]
     },
     "PendingOrder": {
       "title": "Pending Order",
-      "description": "An order that is pending production.",
+      "description": "Pending order master data.",
       "type": "object",
       "properties": {
-        "piNo": { "type": "string", "description": "The PI number." },
-        "model": { "type": "string", "description": "The model name/number." },
-        "description": { "type": "string", "description": "Description of the product." }
+        "piNo": { "type": "string", "description": "PI number." },
+        "model": { "type": "string", "description": "Model identifier." },
+        "description": { "type": "string", "description": "Description of the model." }
       },
       "required": ["piNo", "model"]
     }
   },
   "firestore": {
-    "production": { "schema": "ProductionEntry", "description": "Collection of production entries." },
-    "wastage": { "schema": "WastageEntry", "description": "Collection of wastage entries." },
-    "breakdown": { "schema": "BreakdownEntry", "description": "Collection of breakdown entries." },
-    "machines": { "schema": "Machine", "description": "Collection of machines." },
-    "operators": { "schema": "Operator", "description": "Collection of operators." },
-    "pendingOrders": { "schema": "PendingOrder", "description": "Collection of pending orders." }
+    "/production": { "schema": { "$ref": "ProductionEntry" }, "description": "Collection of production entries." },
+    "/wastage": { "schema": { "$ref": "WastageEntry" }, "description": "Collection of wastage entries." },
+    "/breakdown": { "schema": { "$ref": "BreakdownEntry" }, "description": "Collection of breakdown entries." },
+    "/machines": { "schema": { "$ref": "Machine" }, "description": "Collection of machines." },
+    "/operators": { "schema": { "$ref": "Operator" }, "description": "Collection of operators." },
+    "/pendingOrders": { "schema": { "$ref": "PendingOrder" }, "description": "Collection of pending orders." }
   }
 }
