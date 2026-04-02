@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  LineChart, 
+  Line, 
+  PieChart, 
+  Pie, 
+  Cell,
+  Legend
+} from 'recharts';
+import { 
   LayoutDashboard, 
   PlusCircle, 
   Trash2, 
@@ -21,7 +36,12 @@ import {
   FileSpreadsheet,
   ChevronDown,
   LogOut,
-  ExternalLink
+  ExternalLink,
+  Calendar,
+  Clock,
+  TrendingUp,
+  PieChart as PieChartIcon,
+  Activity
 } from 'lucide-react';
 import { 
   collection, 
@@ -48,10 +68,10 @@ import type {
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 
-type Section = 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
+type Section = 'dashboard' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
 
 export default function App() {
-  const [activeSection, setActiveSection] = useState<Section>('production');
+  const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -106,6 +126,8 @@ export default function App() {
   const [editingWastageId, setEditingWastageId] = useState<string | null>(null);
   const [editingBreakdownId, setEditingBreakdownId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [wastageSearchTerm, setWastageSearchTerm] = useState('');
+  const [breakdownSearchTerm, setBreakdownSearchTerm] = useState('');
   const [filterMachine, setFilterMachine] = useState('');
   const [filterShift, setFilterShift] = useState('');
 
@@ -204,8 +226,6 @@ export default function App() {
       piNo: '',
       model: '',
       description: '',
-      material: '',
-      thickness: '',
       productionQty: 0,
       packetQty: 0,
       meter: 0,
@@ -377,8 +397,6 @@ export default function App() {
             piNo: getVal(['pino', 'pi', 'pinumber']),
             model: getVal(['model', 'modelno', 'modelnumber']),
             description: getVal(['description', 'desc']),
-            material: getVal(['material', 'mat']),
-            thickness: getVal(['thickness', 'thick'])
           });
         }
         showNotification('success', `Uploaded ${data.length} orders!`);
@@ -423,13 +441,17 @@ export default function App() {
       if (order) {
         setFormData(prev => ({
           ...prev,
-          description: order.description
+          description: order.description,
         }));
       }
     } else if (formData.model && !formData.piNo) {
       const matchingOrders = pendingOrders.filter(o => o.model === formData.model);
       if (matchingOrders.length === 1) {
-        setFormData(prev => ({ ...prev, piNo: matchingOrders[0].piNo }));
+        setFormData(prev => ({ 
+          ...prev, 
+          piNo: matchingOrders[0].piNo,
+          description: matchingOrders[0].description,
+        }));
       }
     }
   }, [formData.piNo, formData.model, pendingOrders]);
@@ -438,8 +460,39 @@ export default function App() {
     const totalProd = productionData.reduce((sum, entry) => sum + (Number(entry.productionQty) || 0), 0);
     const totalRolls = productionData.reduce((sum, entry) => sum + (Number(entry.rollQty) || 0), 0);
     const totalKgs = productionData.reduce((sum, entry) => sum + (Number(entry.rollKgs) || 0), 0);
-    return { totalProd, totalRolls, totalKgs };
+    
+    const totalBreakdownMinutes = breakdownData.reduce((sum, entry) => {
+      if (!entry.startTime || !entry.endTime) return sum;
+      const [startH, startM] = entry.startTime.split(':').map(Number);
+      const [endH, endM] = entry.endTime.split(':').map(Number);
+      let diff = (endH * 60 + endM) - (startH * 60 + startM);
+      if (diff < 0) diff += 24 * 60; // Handle overnight breakdown
+      return sum + diff;
+    }, 0);
+
+    return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes };
+  }, [productionData, breakdownData]);
+
+  const productionTrendData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    }).reverse();
+    
+    return last7Days.map(date => ({
+      date: date.split('-').slice(1).join('/'),
+      qty: productionData.filter(p => p.productionDate === date).reduce((sum, p) => sum + (p.productionQty || 0), 0)
+    }));
   }, [productionData]);
+
+  const wastageChartData = useMemo(() => {
+    const types: Record<string, number> = {};
+    wastageData.forEach(w => {
+      types[w.wastageType] = (types[w.wastageType] || 0) + (w.weight || 0);
+    });
+    return Object.entries(types).map(([name, value]) => ({ name, value }));
+  }, [wastageData]);
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden">
@@ -459,8 +512,8 @@ export default function App() {
           <NavItem 
             icon={<LayoutDashboard size={20} />} 
             label="Dashboard" 
-            active={activeSection === 'grid-view'} 
-            onClick={() => setActiveSection('grid-view')} 
+            active={activeSection === 'dashboard'} 
+            onClick={() => setActiveSection('dashboard')} 
             collapsed={!isSidebarOpen}
           />
           <NavItem 
@@ -540,26 +593,125 @@ export default function App() {
             <p className="text-gray-500 mt-1">Manage your production operations efficiently.</p>
           </div>
           <div className="flex gap-4">
-            <button 
-              onClick={exportToExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <Download size={18} />
-              <span>Export</span>
-            </button>
+            {activeSection !== 'dashboard' && (
+              <button 
+                onClick={exportToExcel}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <Download size={18} />
+                <span>Export</span>
+              </button>
+            )}
           </div>
         </header>
 
-        {/* Dashboard Summary */}
-        {activeSection === 'production' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <StatCard icon={<BarChart3 className="text-blue-600" />} label="Total Production Qty" value={stats.totalProd.toLocaleString()} color="blue" />
-            <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
-            <StatCard icon={<Users className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
+        {activeSection === 'dashboard' && (
+          <div className="space-y-8">
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard icon={<BarChart3 className="text-blue-600" />} label="Total Production" value={stats.totalProd.toLocaleString()} color="blue" />
+              <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
+              <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
+              <StatCard icon={<Clock className="text-red-600" />} label="Breakdown Time" value={`${Math.floor(stats.totalBreakdownMinutes / 60)}h ${stats.totalBreakdownMinutes % 60}m`} color="red" />
+            </div>
+
+            {/* Charts Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Production Trend */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Activity size={20} className="text-blue-600" />
+                    Production Trend (Last 7 Days)
+                  </h3>
+                </div>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={productionTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                        cursor={{ fill: '#f9fafb' }}
+                      />
+                      <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Wastage Breakdown */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <PieChartIcon size={20} className="text-orange-600" />
+                    Wastage by Type
+                  </h3>
+                </div>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={wastageChartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6'].map((color, index) => (
+                          <Cell key={`cell-${index}`} fill={color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                      />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-lg font-bold">Recent Production Entries</h3>
+                <button onClick={() => setActiveSection('production')} className="text-blue-600 text-sm font-semibold hover:underline">View All</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold">Date</th>
+                      <th className="px-6 py-4 font-semibold">Machine</th>
+                      <th className="px-6 py-4 font-semibold">Model</th>
+                      <th className="px-6 py-4 font-semibold">Qty</th>
+                      <th className="px-6 py-4 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {productionData.slice(0, 5).map((entry) => (
+                      <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 text-sm">{entry.productionDate}</td>
+                        <td className="px-6 py-4 text-sm font-medium">{entry.machineNo}</td>
+                        <td className="px-6 py-4 text-sm">{entry.model}</td>
+                        <td className="px-6 py-4 text-sm font-bold">{entry.productionQty}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-100 p-8", activeSection === 'dashboard' && "hidden")}>
           {activeSection === 'production' && (
             <div className="space-y-12">
               <form onSubmit={handleSaveProduction} className="space-y-8">
@@ -830,53 +982,73 @@ export default function App() {
                 </div>
               </form>
 
-              <div className="mt-12 overflow-x-auto rounded-xl border border-gray-200">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold">Date</th>
-                      <th className="px-6 py-4 font-semibold">Shift</th>
-                      <th className="px-6 py-4 font-semibold">Machine</th>
-                      <th className="px-6 py-4 font-semibold">Type</th>
-                      <th className="px-6 py-4 font-semibold text-right">Weight</th>
-                      <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {wastageData.slice(0, 10).map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm">{item.date}</td>
-                        <td className="px-6 py-4 text-sm">{item.shift}</td>
-                        <td className="px-6 py-4 text-sm font-medium">{item.machineNo}</td>
-                        <td className="px-6 py-4 text-sm">{item.wastageType}</td>
-                        <td className="px-6 py-4 text-sm text-right font-bold">{item.weight} Kgs</td>
-                        <td className="px-6 py-4 text-sm text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button 
-                              onClick={() => handleEditWastage(item)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteWastage(item.id!)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {wastageData.length === 0 && (
+              <div className="mt-12 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">Wastage History</h3>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Search wastage..." 
+                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                      value={wastageSearchTerm}
+                      onChange={e => setWastageSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No wastage records found.</td>
+                        <th className="px-6 py-4 font-semibold">Date</th>
+                        <th className="px-6 py-4 font-semibold">Shift</th>
+                        <th className="px-6 py-4 font-semibold">Machine</th>
+                        <th className="px-6 py-4 font-semibold">Type</th>
+                        <th className="px-6 py-4 font-semibold text-right">Weight</th>
+                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {wastageData
+                        .filter(w => 
+                          w.wastageType?.toLowerCase().includes(wastageSearchTerm.toLowerCase()) ||
+                          w.machineNo?.toLowerCase().includes(wastageSearchTerm.toLowerCase())
+                        )
+                        .map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm">{item.date}</td>
+                          <td className="px-6 py-4 text-sm">{item.shift}</td>
+                          <td className="px-6 py-4 text-sm font-medium">{item.machineNo}</td>
+                          <td className="px-6 py-4 text-sm">{item.wastageType}</td>
+                          <td className="px-6 py-4 text-sm text-right font-bold">{item.weight} Kgs</td>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => handleEditWastage(item)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteWastage(item.id!)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {wastageData.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No wastage records found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -935,53 +1107,73 @@ export default function App() {
                 </div>
               </form>
 
-              <div className="mt-12 overflow-x-auto rounded-xl border border-gray-200">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold">Date</th>
-                      <th className="px-6 py-4 font-semibold">Shift</th>
-                      <th className="px-6 py-4 font-semibold">Machine</th>
-                      <th className="px-6 py-4 font-semibold">Reason</th>
-                      <th className="px-6 py-4 font-semibold">Duration</th>
-                      <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {breakdownData.slice(0, 10).map((item) => (
-                      <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm">{item.date}</td>
-                        <td className="px-6 py-4 text-sm">{item.shift}</td>
-                        <td className="px-6 py-4 text-sm font-medium">{item.machineNo}</td>
-                        <td className="px-6 py-4 text-sm">{item.reason}</td>
-                        <td className="px-6 py-4 text-sm">{item.startTime} - {item.endTime}</td>
-                        <td className="px-6 py-4 text-sm text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button 
-                              onClick={() => handleEditBreakdown(item)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteBreakdown(item.id!)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {breakdownData.length === 0 && (
+              <div className="mt-12 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">Breakdown History</h3>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Search breakdown..." 
+                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                      value={breakdownSearchTerm}
+                      onChange={e => setBreakdownSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <tr>
-                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
+                        <th className="px-6 py-4 font-semibold">Date</th>
+                        <th className="px-6 py-4 font-semibold">Shift</th>
+                        <th className="px-6 py-4 font-semibold">Machine</th>
+                        <th className="px-6 py-4 font-semibold">Reason</th>
+                        <th className="px-6 py-4 font-semibold">Duration</th>
+                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {breakdownData
+                        .filter(b => 
+                          b.reason?.toLowerCase().includes(breakdownSearchTerm.toLowerCase()) ||
+                          b.machineNo?.toLowerCase().includes(breakdownSearchTerm.toLowerCase())
+                        )
+                        .map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm">{item.date}</td>
+                          <td className="px-6 py-4 text-sm">{item.shift}</td>
+                          <td className="px-6 py-4 text-sm font-medium">{item.machineNo}</td>
+                          <td className="px-6 py-4 text-sm">{item.reason}</td>
+                          <td className="px-6 py-4 text-sm">{item.startTime} - {item.endTime}</td>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => handleEditBreakdown(item)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteBreakdown(item.id!)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {breakdownData.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
@@ -1010,16 +1202,17 @@ function NavItem({ icon, label, active, onClick, collapsed }: { icon: React.Reac
 
 function StatCard({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) {
   const colors = {
-    blue: "bg-blue-50 border-blue-100",
-    purple: "bg-purple-50 border-purple-100",
-    orange: "bg-orange-50 border-orange-100",
+    blue: "bg-blue-50 border-blue-100 text-blue-600",
+    purple: "bg-purple-50 border-purple-100 text-purple-600",
+    orange: "bg-orange-50 border-orange-100 text-orange-600",
+    red: "bg-red-50 border-red-100 text-red-600",
   };
   return (
-    <div className={cn("p-6 rounded-2xl border flex items-center gap-4 shadow-sm", colors[color as keyof typeof colors])}>
+    <div className={cn("p-6 rounded-2xl border flex items-center gap-4 shadow-sm transition-transform hover:scale-[1.02]", colors[color as keyof typeof colors].split(' ')[0], colors[color as keyof typeof colors].split(' ')[1])}>
       <div className="p-3 bg-white rounded-xl shadow-sm">{icon}</div>
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-bold mt-1">{value}</p>
+        <p className="text-2xl font-bold mt-1 text-gray-900">{value}</p>
       </div>
     </div>
   );
@@ -1259,35 +1452,43 @@ function FilterSelect({ placeholder, value, onChange, options, icon }: { placeho
 function MasterSection({ title, icon, data, onAdd, onDelete, placeholder }: { title: string, icon: React.ReactNode, data: any[], onAdd: (v: string) => void, onDelete: (id: string) => void, placeholder: string }) {
   const [val, setVal] = useState('');
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-lg font-bold">
-        {icon}
+    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+      <div className="flex items-center gap-3 text-lg font-bold text-gray-900 border-b border-gray-50 pb-4">
+        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">{icon}</div>
         <h3>{title}</h3>
       </div>
       <div className="flex gap-2">
         <input 
           type="text" 
           placeholder={placeholder}
-          className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none"
+          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
           value={val}
           onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if(e.key === 'Enter' && val) { onAdd(val); setVal(''); } }}
         />
         <button 
           onClick={() => { if(val) { onAdd(val); setVal(''); } }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+          className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm shadow-sm"
         >
           Add
         </button>
       </div>
-      <div className="max-h-64 overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
-        {data.map((item) => (
-          <div key={item.id} className="px-4 py-3 flex justify-between items-center hover:bg-gray-50">
-            <span className="text-sm font-medium">{item.machineNo || item.operatorId} - {item.machineName || item.operatorName}</span>
-            <button onClick={() => onDelete(item.id)} className="text-red-500 hover:bg-red-50 p-1 rounded-lg">
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ))}
+      <div className="max-h-[400px] overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
+        {data.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm italic">No entries found.</div>
+        ) : (
+          data.map((item) => (
+            <div key={item.id} className="px-4 py-3.5 flex justify-between items-center hover:bg-gray-50 transition-colors group">
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-gray-900">{item.machineNo || item.operatorId}</span>
+                <span className="text-xs text-gray-500">{item.machineName || item.operatorName || 'No Name Provided'}</span>
+              </div>
+              <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

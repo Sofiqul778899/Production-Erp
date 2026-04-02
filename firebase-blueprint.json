@@ -12,8 +12,6 @@
         "piNo": { "type": "string", "description": "The PI number." },
         "model": { "type": "string", "description": "The model name/number." },
         "description": { "type": "string", "description": "Description of the product." },
-        "material": { "type": "string", "description": "Material used." },
-        "thickness": { "type": "string", "description": "Thickness of the material." },
         "productionQty": { "type": "number", "description": "Quantity produced." },
         "packetQty": { "type": "number", "description": "Number of packets." },
         "meter": { "type": "number", "description": "Total meters produced." },
@@ -80,9 +78,7 @@
       "properties": {
         "piNo": { "type": "string", "description": "The PI number." },
         "model": { "type": "string", "description": "The model name/number." },
-        "description": { "type": "string", "description": "Description of the product." },
-        "material": { "type": "string", "description": "Material used." },
-        "thickness": { "type": "string", "description": "Thickness of the material." }
+        "description": { "type": "string", "description": "Description of the product." }
       },
       "required": ["piNo", "model"]
     }

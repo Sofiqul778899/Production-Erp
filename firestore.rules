@@ -15,8 +15,6 @@ service cloud.firestore {
     //   - piNo: string (optional)
     //   - model: string (required)
     //   - description: string (optional)
-    //   - material: string (optional)
-    //   - thickness: string (optional)
     //   - productionQty: number (required)
     //   - packetQty: number (optional)
     //   - meter: number (optional)
@@ -59,8 +57,6 @@ service cloud.firestore {
     //   - piNo: string (required)
     //   - model: string (required)
     //   - description: string (optional)
-    //   - material: string (optional)
-    //   - thickness: string (optional)
     //
     // ===============================================================
 
@@ -106,14 +102,13 @@ service cloud.firestore {
 
     function isValidProduction(data) {
       let required = ['productionDate', 'shift', 'machineNo', 'model', 'productionQty'];
-      let allowed = ['productionDate', 'shift', 'machineNo', 'operatorId', 'piNo', 'model', 'description', 'material', 'thickness', 'productionQty', 'packetQty', 'meter', 'rollKgs', 'rollId', 'rollQty', 'createdAt', 'updatedAt'];
+      let allowed = ['productionDate', 'shift', 'machineNo', 'operatorId', 'piNo', 'model', 'description', 'productionQty', 'packetQty', 'meter', 'rollKgs', 'rollId', 'rollQty', 'createdAt', 'updatedAt'];
       return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
              isValidDate('productionDate') && isValidShift('shift') &&
              isValidString('machineNo', 50) && isValidString('model', 100) &&
              isValidNumber('productionQty') &&
              isValidOptionalString('operatorId', 50) && isValidOptionalString('piNo', 50) &&
-             isValidOptionalString('description', 500) && isValidOptionalString('material', 100) &&
-             isValidOptionalString('thickness', 50) && isValidOptionalNumber('packetQty') &&
+             isValidOptionalString('description', 500) && isValidOptionalNumber('packetQty') &&
              isValidOptionalNumber('meter') && isValidOptionalNumber('rollKgs') &&
              isValidOptionalString('rollId', 50) && isValidOptionalNumber('rollQty');
     }
@@ -152,11 +147,10 @@ service cloud.firestore {
 
     function isValidPendingOrder(data) {
       let required = ['piNo', 'model'];
-      let allowed = ['piNo', 'model', 'description', 'material', 'thickness'];
+      let allowed = ['piNo', 'model', 'description'];
       return hasRequiredFields(required) && hasOnlyAllowedFields(allowed) &&
              isValidString('piNo', 50) && isValidString('model', 100) &&
-             isValidOptionalString('description', 500) && isValidOptionalString('material', 100) &&
-             isValidOptionalString('thickness', 50);
+             isValidOptionalString('description', 500);
     }
 
     // ===============================================================

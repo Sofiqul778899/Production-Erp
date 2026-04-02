@@ -1,9 +1,8 @@
 {
-  "projectId": "dataentry-d3b31",
-  "appId": "1:630637978330:web:0aaf2367f6185864307be3",
-  "apiKey": "AIzaSyBnRcdJZnbfyeO0S7Gr8LL8Ib35khnmbqA",
-  "authDomain": "dataentry-d3b31.firebaseapp.com",
-  "storageBucket": "dataentry-d3b31.firebasestorage.app",
-  "messagingSenderId": "630637978330",
-  "measurementId": "G-BNX7YTKFR3"
+  "projectId": "production-management-pro",
+  "appId": "1:470661384860:web:b17dbe269e2eef71b27b59",
+  "apiKey": "AIzaSyBl07_Ubjqy4gZIx10urTm9ahWnHzcyCIM",
+  "authDomain": "production-management-pro.firebaseapp.com",
+  "storageBucket": "production-management-pro.firebasestorage.app",
+  "messagingSenderId": "470661384860"
 }

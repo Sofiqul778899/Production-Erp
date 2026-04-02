@@ -7,8 +7,6 @@ export interface ProductionEntry {
   piNo: string;
   model: string;
   description: string;
-  material: string;
-  thickness: string;
   productionQty: number;
   packetQty: number;
   meter: number;
@@ -56,6 +54,4 @@ export interface PendingOrder {
   piNo: string;
   model: string;
   description: string;
-  material: string;
-  thickness: string;
 }
