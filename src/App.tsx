@@ -660,7 +660,7 @@ function AppContent() {
               <p className="text-xs text-gray-400">If this takes too long, please check your internet connection or Firebase configuration.</p>
             </div>
             <div className="p-3 bg-gray-100 rounded-lg text-[10px] font-mono text-gray-500 break-all text-left">
-              Project ID: production-management-pro
+              Project ID: dataentry-d3b31
             </div>
           </div>
         )}
