@@ -43,12 +43,11 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     function isAuthenticated() {
-      return request.auth != null;
+      return true; // Public access allowed
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (request.auth.token.email == "datafusion611@gmail.com" && request.auth.token.email_verified == true);
+      return true; // Public access allowed
     }
 
     function hasRequiredFields(fields) {

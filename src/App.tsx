@@ -35,7 +35,6 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   ChevronDown,
-  LogOut,
   ExternalLink,
   Calendar,
   Clock,
@@ -59,7 +58,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet } from './utils';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import type { 
   ProductionEntry, 
   WastageEntry,
@@ -137,7 +136,6 @@ export default function App() {
 
 function AppContent() {
   console.log("Rendering AppContent...");
-  const [user, setUser] = useState<User | null>(null);
   const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -222,7 +220,6 @@ function AppContent() {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log("Auth state changed:", user ? "User logged in" : "No user");
-      setUser(user);
       setIsAuthReady(true);
       clearTimeout(timer);
     });
@@ -246,14 +243,14 @@ function AppContent() {
         }
       }
     }
-    if (isAuthReady && user) {
+    if (isAuthReady) {
       testConnection();
     }
-  }, [isAuthReady, user]);
+  }, [isAuthReady]);
 
   // Real-time listeners
   useEffect(() => {
-    if (!isAuthReady || !user) return;
+    if (!isAuthReady) return;
 
     const qProduction = query(collection(db, 'production'), orderBy('createdAt', 'desc'));
     const unsubProduction = onSnapshot(qProduction, (snapshot) => {
@@ -292,36 +289,7 @@ function AppContent() {
       unsubOperators();
       unsubPending();
     };
-  }, [isAuthReady, user]);
-
-  const handleLogin = async () => {
-    console.log("Attempting login...");
-    setIsLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      console.log("Login success:", result.user.email);
-    } catch (error: any) {
-      console.error("Login failed", error);
-      let message = 'Login failed. Please try again.';
-      if (error.code === 'auth/unauthorized-domain') {
-        message = 'This domain is not authorized in Firebase. Please add it to the "Authorized domains" list in Firebase Console.';
-      } else if (error.code === 'auth/popup-blocked') {
-        message = 'Login popup was blocked by your browser. Please allow popups for this site.';
-      }
-      showNotification('error', message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  };
+  }, [isAuthReady]);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -700,41 +668,6 @@ function AppContent() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center space-y-8 border border-gray-100">
-          <div className="space-y-2">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <LayoutDashboard size={32} />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Production Management Pro</h1>
-            <p className="text-gray-500">Sign in to manage your production records</p>
-          </div>
-          
-          <button 
-            onClick={handleLogin}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 bg-white border border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
-          >
-            {isLoading ? (
-              <Loader2 className="animate-spin text-blue-600" size={20} />
-            ) : (
-              <>
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-                Sign in with Google
-              </>
-            )}
-          </button>
-          
-          <p className="text-xs text-gray-400">
-            Securely managed by Firebase Authentication
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden relative">
       {/* Sidebar Overlay for Mobile */}
@@ -802,32 +735,18 @@ function AppContent() {
           />
         </nav>
 
-        <div className="p-4 border-t border-gray-100 space-y-4">
+        <div className="p-4 border-t border-gray-100">
           <div className={cn("flex items-center gap-3", !isSidebarOpen && "justify-center")}>
-            {user.photoURL ? (
-              <img src={user.photoURL} className="w-8 h-8 rounded-full border border-gray-200" alt="User" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-                <Users size={18} />
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+              <Users size={18} />
+            </div>
             {isSidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate">{user.displayName || 'User'}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                <p className="text-sm font-bold truncate">Public Access</p>
+                <p className="text-xs text-gray-500 truncate">No login required</p>
               </div>
             )}
           </div>
-          <button 
-            onClick={handleLogout}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all text-sm font-semibold",
-              !isSidebarOpen && "justify-center px-0"
-            )}
-          >
-            <LogOut size={18} />
-            {isSidebarOpen && <span>Logout</span>}
-          </button>
         </div>
       </aside>
 
