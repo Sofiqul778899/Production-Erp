@@ -280,9 +280,15 @@ function AppContent() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed", error);
-      showNotification('error', 'Login failed. Please try again.');
+      let message = 'Login failed. Please try again.';
+      if (error.code === 'auth/unauthorized-domain') {
+        message = 'This domain is not authorized in Firebase. Please add it to the "Authorized domains" list in Firebase Console.';
+      } else if (error.code === 'auth/popup-blocked') {
+        message = 'Login popup was blocked by your browser. Please allow popups for this site.';
+      }
+      showNotification('error', message);
     }
   };
 
