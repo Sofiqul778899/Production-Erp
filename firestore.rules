@@ -21,15 +21,6 @@ service cloud.firestore {
     //   - shift: string (required)
     //   - machineNo: string (required)
     //   - unit: string (required)
-    //   - setupDamage: number
-    //   - printDamage: number
-    //   - cornerCut: number
-    //   - cuttingDamage: number
-    //   - extruderDamage: number
-    //   - bobinCut: number
-    //   - ultrasonicProblem: number
-    //   - hookDamage: number
-    //   - sampleWastage: number
     //   - createdAt: timestamp (required)
     //
     // Collection: breakdown
@@ -37,22 +28,10 @@ service cloud.firestore {
     //   - date: string (required)
     //   - shift: string (required)
     //   - machineNo: string (required)
-    //   - sizeChange: number
-    //   - rollChange: number
-    //   - waitingForJob: number
-    //   - noOperator: number
-    //   - powerCut: number
-    //   - machineBreakdown: number
-    //   - airProblem: number
-    //   - qualityChecked: number
-    //   - sampleProductionTime: string
+    //   - unit: string (required)
     //   - createdAt: timestamp (required)
     //
-    // Collection: units
-    // Fields:
-    //   - name: string (required)
-    //
-    // Collection: machines, operators, pendingOrders
+    // Collection: units, machines, operators, pendingOrders
     // Master data collections.
     //
     // ===============================================================
@@ -61,11 +40,13 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     function isAuthenticated() {
-      return true; // Public access allowed for now
+      return request.auth != null;
     }
 
     function isAdmin() {
-      return true; // Public access allowed for now
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+         (request.auth.token.email == "datafusion611@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function hasRequiredFields(fields) {
@@ -86,32 +67,14 @@ service cloud.firestore {
       return data.date is string &&
              data.shift in ['Day', 'Night'] &&
              data.machineNo is string &&
-             data.unit is string &&
-             data.setupDamage is number &&
-             data.printDamage is number &&
-             data.cornerCut is number &&
-             data.cuttingDamage is number &&
-             data.extruderDamage is number &&
-             data.bobinCut is number &&
-             data.ultrasonicProblem is number &&
-             data.hookDamage is number &&
-             data.sampleWastage is number;
+             data.unit is string;
     }
 
     function isValidBreakdown(data) {
       return data.date is string &&
              data.shift in ['Day', 'Night'] &&
              data.machineNo is string &&
-             data.unit is string &&
-             data.sizeChange is number &&
-             data.rollChange is number &&
-             data.waitingForJob is number &&
-             data.noOperator is number &&
-             data.powerCut is number &&
-             data.machineBreakdown is number &&
-             data.airProblem is number &&
-             data.qualityChecked is number &&
-             data.sampleProductionTime is string;
+             data.unit is string;
     }
 
     // ===============================================================
@@ -119,18 +82,22 @@ service cloud.firestore {
     // ===============================================================
 
     // Master Data (Machines, Operators, PendingOrders, Units)
-    // Public access for master data to ensure setup works smoothly
-    match /machines/{document=**} {
-      allow read, write: if true;
+    // Public read, Admin write
+    match /machines/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-    match /operators/{document=**} {
-      allow read, write: if true;
+    match /operators/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-    match /pendingOrders/{document=**} {
-      allow read, write: if true;
+    match /pendingOrders/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-    match /units/{document=**} {
-      allow read, write: if true;
+    match /units/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // Production Entries
@@ -161,5 +128,11 @@ service cloud.firestore {
     match /test/{id} {
       allow read: if true;
     }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
+
