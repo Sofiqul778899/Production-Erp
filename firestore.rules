@@ -102,6 +102,7 @@ service cloud.firestore {
       return data.date is string &&
              data.shift in ['Day', 'Night'] &&
              data.machineNo is string &&
+             data.unit is string &&
              data.sizeChange is number &&
              data.rollChange is number &&
              data.waitingForJob is number &&
@@ -116,6 +117,21 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+
+    // Master Data (Machines, Operators, PendingOrders, Units)
+    // Public access for master data to ensure setup works smoothly
+    match /machines/{document=**} {
+      allow read, write: if true;
+    }
+    match /operators/{document=**} {
+      allow read, write: if true;
+    }
+    match /pendingOrders/{document=**} {
+      allow read, write: if true;
+    }
+    match /units/{document=**} {
+      allow read, write: if true;
+    }
 
     // Production Entries
     match /production/{id} {
@@ -136,23 +152,9 @@ service cloud.firestore {
     // Breakdown Entries
     match /breakdown/{id} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'createdAt']) && isValidBreakdown(request.resource.data);
+      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'unit', 'createdAt']) && isValidBreakdown(request.resource.data);
       allow update: if isAuthenticated() && isValidBreakdown(request.resource.data);
       allow delete: if isAdmin();
-    }
-
-    // Master Data (Machines, Operators, PendingOrders, Units)
-    match /machines/{id} {
-      allow read, write: if true;
-    }
-    match /operators/{id} {
-      allow read, write: if true;
-    }
-    match /pendingOrders/{id} {
-      allow read, write: if true;
-    }
-    match /units/{id} {
-      allow read, write: if true;
     }
 
     // Connection Test Collection

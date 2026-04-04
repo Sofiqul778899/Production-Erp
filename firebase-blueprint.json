@@ -33,11 +33,19 @@
         "date": { "type": "string", "format": "date", "description": "Date of wastage." },
         "shift": { "type": "string", "enum": ["Day", "Night"], "description": "Shift of wastage." },
         "machineNo": { "type": "string", "description": "Machine identifier." },
-        "wastageType": { "type": "string", "description": "Type of wastage." },
-        "weight": { "type": "number", "description": "Weight of wastage in Kgs." },
+        "unit": { "type": "string", "description": "Unit identifier." },
+        "setupDamage": { "type": "number", "description": "Setup damage." },
+        "printDamage": { "type": "number", "description": "Print damage." },
+        "cornerCut": { "type": "number", "description": "Corner cut." },
+        "cuttingDamage": { "type": "number", "description": "Cutting damage." },
+        "extruderDamage": { "type": "number", "description": "Extruder damage." },
+        "bobinCut": { "type": "number", "description": "Bobin cut." },
+        "ultrasonicProblem": { "type": "number", "description": "Ultrasonic problem." },
+        "hookDamage": { "type": "number", "description": "Hook damage." },
+        "sampleWastage": { "type": "number", "description": "Sample wastage." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when record was created." }
       },
-      "required": ["date", "shift", "machineNo", "wastageType", "weight"]
+      "required": ["date", "shift", "machineNo", "unit", "createdAt"]
     },
     "BreakdownEntry": {
       "title": "Breakdown Entry",
@@ -47,12 +55,19 @@
         "date": { "type": "string", "format": "date", "description": "Date of breakdown." },
         "shift": { "type": "string", "enum": ["Day", "Night"], "description": "Shift of breakdown." },
         "machineNo": { "type": "string", "description": "Machine identifier." },
-        "startTime": { "type": "string", "description": "Start time of breakdown." },
-        "endTime": { "type": "string", "description": "End time of breakdown." },
-        "reason": { "type": "string", "description": "Reason for breakdown." },
+        "unit": { "type": "string", "description": "Unit identifier." },
+        "sizeChange": { "type": "number", "description": "Time spent on size change." },
+        "rollChange": { "type": "number", "description": "Time spent on roll change." },
+        "waitingForJob": { "type": "number", "description": "Time spent waiting for job." },
+        "noOperator": { "type": "number", "description": "Time spent with no operator." },
+        "powerCut": { "type": "number", "description": "Time spent on power cut." },
+        "machineBreakdown": { "type": "number", "description": "Time spent on machine breakdown." },
+        "airProblem": { "type": "number", "description": "Time spent on air problem." },
+        "qualityChecked": { "type": "number", "description": "Time spent on quality checked." },
+        "sampleProductionTime": { "type": "string", "description": "Sample production time." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when record was created." }
       },
-      "required": ["date", "shift", "machineNo", "startTime", "endTime", "reason"]
+      "required": ["date", "shift", "machineNo", "unit", "createdAt"]
     },
     "Machine": {
       "title": "Machine",

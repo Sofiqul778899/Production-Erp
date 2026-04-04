@@ -44,6 +44,7 @@ export interface BreakdownEntry {
   date: string;
   shift: string;
   machineNo: string;
+  unit: string;
   sizeChange: number;
   rollChange: number;
   waitingForJob: number;

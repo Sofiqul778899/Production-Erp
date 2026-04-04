@@ -194,6 +194,7 @@ function AppContent() {
     date: getTodayDate(),
     shift: getAutoShift(),
     machineNo: '',
+    unit: '',
     sizeChange: 0,
     rollChange: 0,
     waitingForJob: 0,
@@ -585,6 +586,7 @@ function AppContent() {
         date: prev.date,
         shift: prev.shift,
         machineNo: prev.machineNo,
+        unit: prev.unit || '',
         sizeChange: 0,
         rollChange: 0,
         waitingForJob: 0,
@@ -1526,7 +1528,7 @@ function AppContent() {
           {activeSection === 'breakdown' && (
             <div className="space-y-8">
               <form onSubmit={handleSaveBreakdown} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <InputGroup label="Date" type="date" value={breakdownForm.date} onChange={v => setBreakdownForm({...breakdownForm, date: v})} required />
                   <SelectGroup 
                     label="Shift" 
@@ -1539,6 +1541,13 @@ function AppContent() {
                     value={breakdownForm.machineNo || ''} 
                     onChange={v => setBreakdownForm({...breakdownForm, machineNo: v})} 
                     options={machines.map(m => m.machineNo)} 
+                    required 
+                  />
+                  <SelectGroup 
+                    label="Unit" 
+                    value={breakdownForm.unit || ''} 
+                    onChange={v => setBreakdownForm({...breakdownForm, unit: v})} 
+                    options={units.map(u => u.name)} 
                     required 
                   />
                 </div>
@@ -1608,6 +1617,7 @@ function AppContent() {
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Unit</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Size Chg</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Roll Chg</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Wait Job</th>
@@ -1626,6 +1636,7 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.unit}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sizeChange}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.rollChange}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.waitingForJob}</td>
@@ -1657,7 +1668,7 @@ function AppContent() {
                       ))}
                       {filteredBreakdown.length === 0 && (
                         <tr>
-                          <td colSpan={13} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
+                          <td colSpan={14} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
                         </tr>
                       )}
                     </tbody>
