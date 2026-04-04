@@ -197,6 +197,41 @@ function AppContent() {
   const [breakdownSearchTerm, setBreakdownSearchTerm] = useState('');
   const [filterMachine, setFilterMachine] = useState('');
   const [filterShift, setFilterShift] = useState('');
+  const [startDate, setStartDate] = useState(getTodayDate());
+  const [endDate, setEndDate] = useState(getTodayDate());
+
+  const filteredProduction = useMemo(() => {
+    return productionData.filter(entry => {
+      const date = entry.productionDate;
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesSearch = entry.machineNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           entry.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           entry.operatorId.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesMachine = !filterMachine || entry.machineNo === filterMachine;
+      const matchesShift = !filterShift || entry.shift === filterShift;
+      return matchesDate && matchesSearch && matchesMachine && matchesShift;
+    });
+  }, [productionData, startDate, endDate, searchTerm, filterMachine, filterShift]);
+
+  const filteredWastage = useMemo(() => {
+    return wastageData.filter(entry => {
+      const date = entry.date;
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesSearch = entry.machineNo.toLowerCase().includes(wastageSearchTerm.toLowerCase()) || 
+                           entry.wastageType.toLowerCase().includes(wastageSearchTerm.toLowerCase());
+      return matchesDate && matchesSearch;
+    });
+  }, [wastageData, startDate, endDate, wastageSearchTerm]);
+
+  const filteredBreakdown = useMemo(() => {
+    return breakdownData.filter(entry => {
+      const date = entry.date;
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesSearch = entry.machineNo.toLowerCase().includes(breakdownSearchTerm.toLowerCase()) || 
+                           entry.reason.toLowerCase().includes(breakdownSearchTerm.toLowerCase());
+      return matchesDate && matchesSearch;
+    });
+  }, [breakdownData, startDate, endDate, breakdownSearchTerm]);
 
   // Sidebar Responsiveness
   useEffect(() => {
@@ -569,25 +604,11 @@ function AppContent() {
 
   const exportToExcel = () => {
     console.log("Exporting production data to Excel...");
-    const ws = XLSX.utils.json_to_sheet(productionData);
+    const ws = XLSX.utils.json_to_sheet(filteredProduction);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Production");
     XLSX.writeFile(wb, `Production_Report_${getTodayDate()}.xlsx`);
   };
-
-  const filteredData = useMemo(() => {
-    return productionData.filter(entry => {
-      const matchesSearch = 
-        entry.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.piNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.operatorId?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesMachine = !filterMachine || entry.machineNo === filterMachine;
-      const matchesShift = !filterShift || entry.shift === filterShift;
-
-      return matchesSearch && matchesMachine && matchesShift;
-    });
-  }, [productionData, searchTerm, filterMachine, filterShift]);
 
   // Auto-fill logic
   useEffect(() => {
@@ -612,11 +633,11 @@ function AppContent() {
   }, [formData.piNo, formData.model, pendingOrders]);
 
   const stats = useMemo(() => {
-    const totalProd = productionData.reduce((sum, entry) => sum + (Number(entry.productionQty) || 0), 0);
-    const totalRolls = productionData.reduce((sum, entry) => sum + (Number(entry.rollQty) || 0), 0);
-    const totalKgs = productionData.reduce((sum, entry) => sum + (Number(entry.rollKgs) || 0), 0);
+    const totalProd = filteredProduction.reduce((sum, entry) => sum + (Number(entry.productionQty) || 0), 0);
+    const totalRolls = filteredProduction.reduce((sum, entry) => sum + (Number(entry.rollQty) || 0), 0);
+    const totalKgs = filteredProduction.reduce((sum, entry) => sum + (Number(entry.rollKgs) || 0), 0);
     
-    const totalBreakdownMinutes = breakdownData.reduce((sum, entry) => {
+    const totalBreakdownMinutes = filteredBreakdown.reduce((sum, entry) => {
       if (!entry.startTime || !entry.endTime) return sum;
       const [startH, startM] = entry.startTime.split(':').map(Number);
       const [endH, endM] = entry.endTime.split(':').map(Number);
@@ -626,28 +647,42 @@ function AppContent() {
     }, 0);
 
     return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes };
-  }, [productionData, breakdownData]);
+  }, [filteredProduction, filteredBreakdown]);
 
   const productionTrendData = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
+    // If we have a range, we should show the range, otherwise last 7 days
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const daysToShow = diffDays > 0 ? diffDays + 1 : 7;
+    const dates = Array.from({ length: daysToShow }, (_, i) => {
+      const d = new Date(endDate);
       d.setDate(d.getDate() - i);
       return d.toISOString().split('T')[0];
     }).reverse();
     
-    return last7Days.map(date => ({
+    return dates.map(date => ({
       date: date.split('-').slice(1).join('/'),
       qty: productionData.filter(p => p.productionDate === date).reduce((sum, p) => sum + (p.productionQty || 0), 0)
     }));
-  }, [productionData]);
+  }, [productionData, startDate, endDate]);
 
   const wastageChartData = useMemo(() => {
     const types: Record<string, number> = {};
-    wastageData.forEach(w => {
+    filteredWastage.forEach(w => {
       types[w.wastageType] = (types[w.wastageType] || 0) + (w.weight || 0);
     });
     return Object.entries(types).map(([name, value]) => ({ name, value }));
-  }, [wastageData]);
+  }, [filteredWastage]);
+
+  const handleNavClick = (section: Section) => {
+    setActiveSection(section);
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+  };
 
   if (!isAuthReady) {
     return (
@@ -690,50 +725,50 @@ function AppContent() {
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2 mt-4">
-          <NavItem 
-            icon={<LayoutDashboard size={20} />} 
-            label="Dashboard" 
-            active={activeSection === 'dashboard'} 
-            onClick={() => setActiveSection('dashboard')} 
-            collapsed={!isSidebarOpen}
-          />
-          <NavItem 
-            icon={<PlusCircle size={20} />} 
-            label="Production Entry" 
-            active={activeSection === 'production'} 
-            onClick={() => setActiveSection('production')} 
-            collapsed={!isSidebarOpen}
-          />
-          <NavItem 
-            icon={<AlertTriangle size={20} />} 
-            label="Wastage Entry" 
-            active={activeSection === 'wastage'} 
-            onClick={() => setActiveSection('wastage')} 
-            collapsed={!isSidebarOpen}
-          />
-          <NavItem 
-            icon={<History size={20} />} 
-            label="Breakdown Entry" 
-            active={activeSection === 'breakdown'} 
-            onClick={() => setActiveSection('breakdown')} 
-            collapsed={!isSidebarOpen}
-          />
-          <NavItem 
-            icon={<FileSpreadsheet size={20} />} 
-            label="Pending Orders" 
-            active={activeSection === 'pending-orders'} 
-            onClick={() => setActiveSection('pending-orders')} 
-            collapsed={!isSidebarOpen}
-          />
-          <NavItem 
-            icon={<Settings size={20} />} 
-            label="Masters" 
-            active={activeSection === 'masters'} 
-            onClick={() => setActiveSection('masters')} 
-            collapsed={!isSidebarOpen}
-          />
-        </nav>
+          <nav className="flex-1 px-4 space-y-2 mt-4">
+            <NavItem 
+              icon={<LayoutDashboard size={20} />} 
+              label="Dashboard" 
+              active={activeSection === 'dashboard'} 
+              onClick={() => handleNavClick('dashboard')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<PlusCircle size={20} />} 
+              label="Production Entry" 
+              active={activeSection === 'production'} 
+              onClick={() => handleNavClick('production')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<AlertTriangle size={20} />} 
+              label="Wastage Entry" 
+              active={activeSection === 'wastage'} 
+              onClick={() => handleNavClick('wastage')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<History size={20} />} 
+              label="Breakdown Entry" 
+              active={activeSection === 'breakdown'} 
+              onClick={() => handleNavClick('breakdown')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<FileSpreadsheet size={20} />} 
+              label="Pending Orders" 
+              active={activeSection === 'pending-orders'} 
+              onClick={() => handleNavClick('pending-orders')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<Settings size={20} />} 
+              label="Masters" 
+              active={activeSection === 'masters'} 
+              onClick={() => handleNavClick('masters')} 
+              collapsed={!isSidebarOpen}
+            />
+          </nav>
 
         <div className="p-4 border-t border-gray-100">
           <div className={cn("flex items-center gap-3", !isSidebarOpen && "justify-center")}>
@@ -784,17 +819,26 @@ function AppContent() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-start sm:items-center">
-              {activeSection === 'production' && (
-                <div className="w-full sm:w-64">
-                  <InputGroup 
-                    label="Production Date" 
+              <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-2 px-2">
+                  <Calendar size={16} className="text-gray-400" />
+                  <input 
                     type="date" 
-                    value={formData.productionDate} 
-                    onChange={v => setFormData({...formData, productionDate: v})} 
-                    required 
+                    value={startDate} 
+                    onChange={e => setStartDate(e.target.value)}
+                    className="text-sm outline-none bg-transparent"
                   />
                 </div>
-              )}
+                <div className="h-4 w-px bg-gray-200" />
+                <div className="flex items-center gap-2 px-2">
+                  <input 
+                    type="date" 
+                    value={endDate} 
+                    onChange={e => setEndDate(e.target.value)}
+                    className="text-sm outline-none bg-transparent"
+                  />
+                </div>
+              </div>
               {activeSection !== 'dashboard' && (
                 <button 
                   onClick={exportToExcel}
@@ -824,7 +868,7 @@ function AppContent() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold flex items-center gap-2">
                     <Activity size={20} className="text-blue-600" />
-                    Production Trend (Last 7 Days)
+                    Production Trend {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}
                   </h3>
                 </div>
                 <div className="h-[300px] w-full">
@@ -848,7 +892,7 @@ function AppContent() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold flex items-center gap-2">
                     <PieChartIcon size={20} className="text-orange-600" />
-                    Wastage by Type
+                    Wastage by Type {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}
                   </h3>
                 </div>
                 <div className="h-[300px] w-full">
@@ -880,8 +924,8 @@ function AppContent() {
             {/* Recent Activity */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-lg font-bold">Recent Production Entries</h3>
-                <button onClick={() => setActiveSection('production')} className="text-blue-600 text-sm font-semibold hover:underline">View All</button>
+                <h3 className="text-lg font-bold">Production Entries {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
+                <button onClick={() => handleNavClick('production')} className="text-blue-600 text-sm font-semibold hover:underline">View All</button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -895,7 +939,7 @@ function AppContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {productionData.slice(0, 5).map((entry) => (
+                    {filteredProduction.slice(0, 5).map((entry) => (
                       <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.productionDate}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{entry.machineNo}</td>
@@ -998,31 +1042,34 @@ function AppContent() {
               </form>
 
               <div className="space-y-6 pt-8 border-t border-gray-100">
-                <div className="flex flex-col md:flex-row gap-4 justify-between">
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      type="text" 
-                      placeholder="Search by Model, PI No, or Operator..." 
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex gap-4">
-                    <FilterSelect 
-                      placeholder="All Machines"
-                      value={filterMachine}
-                      onChange={setFilterMachine}
-                      options={machines.map(m => m.machineNo)}
-                      icon={<Filter size={18} />}
-                    />
-                    <FilterSelect 
-                      placeholder="All Shifts"
-                      value={filterShift}
-                      onChange={setFilterShift}
-                      options={['Day', 'Night']}
-                    />
+                <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
+                  <h3 className="text-xl font-bold">Production History {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
+                  <div className="flex flex-col md:flex-row gap-4 flex-1 max-w-3xl justify-end">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                      <input 
+                        type="text" 
+                        placeholder="Search by Model, PI No, or Operator..." 
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-4">
+                      <FilterSelect 
+                        placeholder="All Machines"
+                        value={filterMachine}
+                        onChange={setFilterMachine}
+                        options={machines.map(m => m.machineNo)}
+                        icon={<Filter size={18} />}
+                      />
+                      <FilterSelect 
+                        placeholder="All Shifts"
+                        value={filterShift}
+                        onChange={setFilterShift}
+                        options={['Day', 'Night']}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1040,7 +1087,7 @@ function AppContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredData.map((entry) => (
+                      {filteredProduction.map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.productionDate}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">
@@ -1067,7 +1114,7 @@ function AppContent() {
                           </td>
                         </tr>
                       ))}
-                      {filteredData.length === 0 && (
+                      {filteredProduction.length === 0 && (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                             No production records found matching your filters.
@@ -1204,7 +1251,7 @@ function AppContent() {
 
               <div className="mt-12 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Wastage History</h3>
+                  <h3 className="text-xl font-bold">Wastage History {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
@@ -1229,12 +1276,7 @@ function AppContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {wastageData
-                        .filter(w => 
-                          w.wastageType?.toLowerCase().includes(wastageSearchTerm.toLowerCase()) ||
-                          w.machineNo?.toLowerCase().includes(wastageSearchTerm.toLowerCase())
-                        )
-                        .map((item) => (
+                      {filteredWastage.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
@@ -1261,7 +1303,7 @@ function AppContent() {
                           </td>
                         </tr>
                       ))}
-                      {wastageData.length === 0 && (
+                      {filteredWastage.length === 0 && (
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No wastage records found.</td>
                         </tr>
@@ -1329,7 +1371,7 @@ function AppContent() {
 
               <div className="mt-12 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Breakdown History</h3>
+                  <h3 className="text-xl font-bold">Breakdown History {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
@@ -1354,12 +1396,7 @@ function AppContent() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {breakdownData
-                        .filter(b => 
-                          b.reason?.toLowerCase().includes(breakdownSearchTerm.toLowerCase()) ||
-                          b.machineNo?.toLowerCase().includes(breakdownSearchTerm.toLowerCase())
-                        )
-                        .map((item) => (
+                      {filteredBreakdown.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
@@ -1386,7 +1423,7 @@ function AppContent() {
                           </td>
                         </tr>
                       ))}
-                      {breakdownData.length === 0 && (
+                      {filteredBreakdown.length === 0 && (
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
                         </tr>
