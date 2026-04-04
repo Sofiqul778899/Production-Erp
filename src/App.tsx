@@ -433,17 +433,25 @@ function AppContent() {
     setIsLoading(true);
 
     try {
-      // Duplicate check: machineNo + date + shift + model
+      // Duplicate check: All fields must match
       const isDuplicate = productionData.some(entry => 
         entry.id !== editingId &&
         entry.machineNo === formData.machineNo &&
         entry.productionDate === formData.productionDate &&
         entry.shift === formData.shift &&
-        entry.model === formData.model
+        entry.operatorId === formData.operatorId &&
+        entry.piNo === formData.piNo &&
+        entry.model === formData.model &&
+        entry.productionQty === formData.productionQty &&
+        entry.packetQty === formData.packetQty &&
+        entry.meter === formData.meter &&
+        entry.rollKgs === formData.rollKgs &&
+        entry.rollId === formData.rollId &&
+        entry.rollQty === formData.rollQty
       );
 
       if (isDuplicate) {
-        showNotification('error', 'Duplicate entry found for this Machine, Date, Shift, and Model!');
+        showNotification('error', 'Exact duplicate entry found! This data has already been saved.');
         setIsLoading(false);
         return;
       }
@@ -518,6 +526,30 @@ function AppContent() {
     console.log("Saving wastage entry:", wastageForm);
     setIsLoading(true);
     try {
+      // Duplicate check: All fields must match
+      const isDuplicate = wastageData.some(entry => 
+        entry.id !== editingWastageId &&
+        entry.date === wastageForm.date &&
+        entry.shift === wastageForm.shift &&
+        entry.machineNo === wastageForm.machineNo &&
+        entry.unit === wastageForm.unit &&
+        entry.setupDamage === wastageForm.setupDamage &&
+        entry.printDamage === wastageForm.printDamage &&
+        entry.cornerCut === wastageForm.cornerCut &&
+        entry.cuttingDamage === wastageForm.cuttingDamage &&
+        entry.extruderDamage === wastageForm.extruderDamage &&
+        entry.bobinCut === wastageForm.bobinCut &&
+        entry.ultrasonicProblem === wastageForm.ultrasonicProblem &&
+        entry.hookDamage === wastageForm.hookDamage &&
+        entry.sampleWastage === wastageForm.sampleWastage
+      );
+
+      if (isDuplicate) {
+        showNotification('error', 'Exact duplicate wastage entry found!');
+        setIsLoading(false);
+        return;
+      }
+
       if (editingWastageId) {
         await updateDoc(doc(db, 'wastage', editingWastageId), {
           ...wastageForm,
@@ -580,6 +612,30 @@ function AppContent() {
     console.log("Saving breakdown entry:", breakdownForm);
     setIsLoading(true);
     try {
+      // Duplicate check: All fields must match
+      const isDuplicate = breakdownData.some(entry => 
+        entry.id !== editingBreakdownId &&
+        entry.date === breakdownForm.date &&
+        entry.shift === breakdownForm.shift &&
+        entry.machineNo === breakdownForm.machineNo &&
+        entry.unit === breakdownForm.unit &&
+        entry.sizeChange === breakdownForm.sizeChange &&
+        entry.rollChange === breakdownForm.rollChange &&
+        entry.waitingForJob === breakdownForm.waitingForJob &&
+        entry.noOperator === breakdownForm.noOperator &&
+        entry.powerCut === breakdownForm.powerCut &&
+        entry.machineBreakdown === breakdownForm.machineBreakdown &&
+        entry.airProblem === breakdownForm.airProblem &&
+        entry.qualityChecked === breakdownForm.qualityChecked &&
+        entry.sampleProductionTime === breakdownForm.sampleProductionTime
+      );
+
+      if (isDuplicate) {
+        showNotification('error', 'Exact duplicate breakdown entry found!');
+        setIsLoading(false);
+        return;
+      }
+
       if (editingBreakdownId) {
         await updateDoc(doc(db, 'breakdown', editingBreakdownId), {
           ...breakdownForm,
@@ -981,7 +1037,7 @@ function AppContent() {
               </button>
               <div>
                 <h2 className="text-2xl md:text-3xl font-bold tracking-tight capitalize">{activeSection.replace('-', ' ')}</h2>
-                <p className="text-gray-500 text-sm mt-1">Manage your production operations efficiently.</p>
+
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-start sm:items-center">
