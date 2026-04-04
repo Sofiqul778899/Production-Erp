@@ -13,7 +13,13 @@ export interface ProductionEntry {
   rollKgs: number;
   rollId: string;
   rollQty: number;
+  unit: string;
   createdAt: any;
+}
+
+export interface Unit {
+  id?: string;
+  name: string;
 }
 
 export interface WastageEntry {
@@ -21,8 +27,16 @@ export interface WastageEntry {
   date: string;
   shift: string;
   machineNo: string;
-  wastageType: string;
-  weight: number;
+  unit: string;
+  setupDamage: number;
+  printDamage: number;
+  cornerCut: number;
+  cuttingDamage: number;
+  extruderDamage: number;
+  bobinCut: number;
+  ultrasonicProblem: number;
+  hookDamage: number;
+  sampleWastage: number;
   createdAt: any;
 }
 
@@ -31,9 +45,15 @@ export interface BreakdownEntry {
   date: string;
   shift: string;
   machineNo: string;
-  startTime: string;
-  endTime: string;
-  reason: string;
+  sizeChange: number;
+  rollChange: number;
+  waitingForJob: number;
+  noOperator: number;
+  powerCut: number;
+  machineBreakdown: number;
+  airProblem: number;
+  qualityChecked: number;
+  sampleProductionTime: string;
   createdAt: any;
 }
 

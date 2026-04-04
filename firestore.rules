@@ -20,8 +20,16 @@ service cloud.firestore {
     //   - date: string (required)
     //   - shift: string (required)
     //   - machineNo: string (required)
-    //   - wastageType: string (required)
-    //   - weight: number (required)
+    //   - unit: string (required)
+    //   - setupDamage: number
+    //   - printDamage: number
+    //   - cornerCut: number
+    //   - cuttingDamage: number
+    //   - extruderDamage: number
+    //   - bobinCut: number
+    //   - ultrasonicProblem: number
+    //   - hookDamage: number
+    //   - sampleWastage: number
     //   - createdAt: timestamp (required)
     //
     // Collection: breakdown
@@ -29,10 +37,20 @@ service cloud.firestore {
     //   - date: string (required)
     //   - shift: string (required)
     //   - machineNo: string (required)
-    //   - startTime: string (required)
-    //   - endTime: string (required)
-    //   - reason: string (required)
+    //   - sizeChange: number
+    //   - rollChange: number
+    //   - waitingForJob: number
+    //   - noOperator: number
+    //   - powerCut: number
+    //   - machineBreakdown: number
+    //   - airProblem: number
+    //   - qualityChecked: number
+    //   - sampleProductionTime: string
     //   - createdAt: timestamp (required)
+    //
+    // Collection: units
+    // Fields:
+    //   - name: string (required)
     //
     // Collection: machines, operators, pendingOrders
     // Master data collections.
@@ -43,11 +61,11 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     function isAuthenticated() {
-      return true; // Public access allowed
+      return true; // Public access allowed for now
     }
 
     function isAdmin() {
-      return true; // Public access allowed
+      return true; // Public access allowed for now
     }
 
     function hasRequiredFields(fields) {
@@ -68,18 +86,31 @@ service cloud.firestore {
       return data.date is string &&
              data.shift in ['Day', 'Night'] &&
              data.machineNo is string &&
-             data.wastageType is string &&
-             data.weight is number &&
-             data.weight >= 0;
+             data.unit is string &&
+             data.setupDamage is number &&
+             data.printDamage is number &&
+             data.cornerCut is number &&
+             data.cuttingDamage is number &&
+             data.extruderDamage is number &&
+             data.bobinCut is number &&
+             data.ultrasonicProblem is number &&
+             data.hookDamage is number &&
+             data.sampleWastage is number;
     }
 
     function isValidBreakdown(data) {
       return data.date is string &&
              data.shift in ['Day', 'Night'] &&
              data.machineNo is string &&
-             data.startTime is string &&
-             data.endTime is string &&
-             data.reason is string;
+             data.sizeChange is number &&
+             data.rollChange is number &&
+             data.waitingForJob is number &&
+             data.noOperator is number &&
+             data.powerCut is number &&
+             data.machineBreakdown is number &&
+             data.airProblem is number &&
+             data.qualityChecked is number &&
+             data.sampleProductionTime is string;
     }
 
     // ===============================================================
@@ -97,7 +128,7 @@ service cloud.firestore {
     // Wastage Entries
     match /wastage/{id} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'wastageType', 'weight', 'createdAt']) && isValidWastage(request.resource.data);
+      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'unit', 'createdAt']) && isValidWastage(request.resource.data);
       allow update: if isAuthenticated() && isValidWastage(request.resource.data);
       allow delete: if isAdmin();
     }
@@ -105,12 +136,12 @@ service cloud.firestore {
     // Breakdown Entries
     match /breakdown/{id} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'startTime', 'endTime', 'reason', 'createdAt']) && isValidBreakdown(request.resource.data);
+      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'createdAt']) && isValidBreakdown(request.resource.data);
       allow update: if isAuthenticated() && isValidBreakdown(request.resource.data);
       allow delete: if isAdmin();
     }
 
-    // Master Data (Machines, Operators, PendingOrders)
+    // Master Data (Machines, Operators, PendingOrders, Units)
     match /machines/{id} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
@@ -120,6 +151,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /pendingOrders/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    match /units/{id} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }

@@ -65,7 +65,8 @@ import type {
   BreakdownEntry,
   Machine, 
   Operator, 
-  PendingOrder 
+  PendingOrder,
+  Unit
 } from './types';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -150,6 +151,7 @@ function AppContent() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
 
   // Form States (Production)
   const [formData, setFormData] = useState<Partial<ProductionEntry>>({
@@ -168,6 +170,7 @@ function AppContent() {
     rollKgs: 0,
     rollId: '',
     rollQty: 0,
+    unit: '',
   });
 
   // Form States (Wastage)
@@ -175,8 +178,16 @@ function AppContent() {
     date: getTodayDate(),
     shift: getAutoShift(),
     machineNo: '',
-    wastageType: '',
-    weight: 0,
+    unit: '',
+    setupDamage: 0,
+    printDamage: 0,
+    cornerCut: 0,
+    cuttingDamage: 0,
+    extruderDamage: 0,
+    bobinCut: 0,
+    ultrasonicProblem: 0,
+    hookDamage: 0,
+    sampleWastage: 0,
   });
 
   // Form States (Breakdown)
@@ -184,9 +195,15 @@ function AppContent() {
     date: getTodayDate(),
     shift: getAutoShift(),
     machineNo: '',
-    startTime: '',
-    endTime: '',
-    reason: '',
+    sizeChange: 0,
+    rollChange: 0,
+    waitingForJob: 0,
+    noOperator: 0,
+    powerCut: 0,
+    machineBreakdown: 0,
+    airProblem: 0,
+    qualityChecked: 0,
+    sampleProductionTime: '',
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -246,6 +263,63 @@ function AppContent() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Sync Date across entry forms
+  useEffect(() => {
+    const date = formData.productionDate;
+    if (date && wastageForm.date !== date) setWastageForm(prev => ({ ...prev, date }));
+    if (date && breakdownForm.date !== date) setBreakdownForm(prev => ({ ...prev, date }));
+  }, [formData.productionDate]);
+
+  useEffect(() => {
+    const date = wastageForm.date;
+    if (date && formData.productionDate !== date) setFormData(prev => ({ ...prev, productionDate: date }));
+    if (date && breakdownForm.date !== date) setBreakdownForm(prev => ({ ...prev, date }));
+  }, [wastageForm.date]);
+
+  useEffect(() => {
+    const date = breakdownForm.date;
+    if (date && formData.productionDate !== date) setFormData(prev => ({ ...prev, productionDate: date }));
+    if (date && wastageForm.date !== date) setWastageForm(prev => ({ ...prev, date }));
+  }, [breakdownForm.date]);
+
+  // Sync Shift across entry forms
+  useEffect(() => {
+    const shift = formData.shift;
+    if (shift && wastageForm.shift !== shift) setWastageForm(prev => ({ ...prev, shift }));
+    if (shift && breakdownForm.shift !== shift) setBreakdownForm(prev => ({ ...prev, shift }));
+  }, [formData.shift]);
+
+  useEffect(() => {
+    const shift = wastageForm.shift;
+    if (shift && formData.shift !== shift) setFormData(prev => ({ ...prev, shift }));
+    if (shift && breakdownForm.shift !== shift) setBreakdownForm(prev => ({ ...prev, shift }));
+  }, [wastageForm.shift]);
+
+  useEffect(() => {
+    const shift = breakdownForm.shift;
+    if (shift && formData.shift !== shift) setFormData(prev => ({ ...prev, shift }));
+    if (shift && wastageForm.shift !== shift) setWastageForm(prev => ({ ...prev, shift }));
+  }, [breakdownForm.shift]);
+
+  // Sync Machine No across entry forms
+  useEffect(() => {
+    const machine = formData.machineNo;
+    if (machine && wastageForm.machineNo !== machine) setWastageForm(prev => ({ ...prev, machineNo: machine }));
+    if (machine && breakdownForm.machineNo !== machine) setBreakdownForm(prev => ({ ...prev, machineNo: machine }));
+  }, [formData.machineNo]);
+
+  useEffect(() => {
+    const machine = wastageForm.machineNo;
+    if (machine && formData.machineNo !== machine) setFormData(prev => ({ ...prev, machineNo: machine }));
+    if (machine && breakdownForm.machineNo !== machine) setBreakdownForm(prev => ({ ...prev, machineNo: machine }));
+  }, [wastageForm.machineNo]);
+
+  useEffect(() => {
+    const machine = breakdownForm.machineNo;
+    if (machine && formData.machineNo !== machine) setFormData(prev => ({ ...prev, machineNo: machine }));
+    if (machine && wastageForm.machineNo !== machine) setWastageForm(prev => ({ ...prev, machineNo: machine }));
+  }, [breakdownForm.machineNo]);
 
   // Auth Listener
   useEffect(() => {
@@ -316,6 +390,10 @@ function AppContent() {
       setPendingOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PendingOrder)));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'pendingOrders'));
 
+    const unsubUnits = onSnapshot(collection(db, 'units'), (snapshot) => {
+      setUnits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit)));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'units'));
+
     return () => {
       unsubProduction();
       unsubWastage();
@@ -323,6 +401,7 @@ function AppContent() {
       unsubMachines();
       unsubOperators();
       unsubPending();
+      unsubUnits();
     };
   }, [isAuthReady]);
 
@@ -368,7 +447,7 @@ function AppContent() {
         showNotification('success', 'Entry saved successfully!');
       }
 
-      resetForm();
+      resetForm(true);
     } catch (error) {
       console.error("Error saving production:", error);
       showNotification('error', 'Failed to save entry.');
@@ -378,12 +457,12 @@ function AppContent() {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      productionDate: getTodayDate(),
-      shift: getAutoShift(),
-      machineNo: '',
-      operatorId: '',
+  const resetForm = (preserveContext = false) => {
+    setFormData(prev => ({
+      productionDate: preserveContext ? prev.productionDate : getTodayDate(),
+      shift: preserveContext ? prev.shift : (getAutoShift() as 'Day' | 'Night'),
+      machineNo: preserveContext ? prev.machineNo : '',
+      operatorId: preserveContext ? prev.operatorId : '',
       piNo: '',
       model: '',
       description: '',
@@ -393,7 +472,8 @@ function AppContent() {
       rollKgs: 0,
       rollId: '',
       rollQty: 0,
-    });
+      unit: preserveContext ? prev.unit : '',
+    }));
     setEditingId(null);
   };
 
@@ -437,13 +517,21 @@ function AppContent() {
         await syncToGoogleSheet({ ...wastageForm, type: 'Wastage New' });
         showNotification('success', 'Wastage entry saved!');
       }
-      setWastageForm({
-        date: getTodayDate(),
-        shift: getAutoShift(),
-        machineNo: '',
-        wastageType: '',
-        weight: 0,
-      });
+      setWastageForm(prev => ({
+        date: prev.date,
+        shift: prev.shift,
+        machineNo: prev.machineNo,
+        unit: prev.unit,
+        setupDamage: 0,
+        printDamage: 0,
+        cornerCut: 0,
+        cuttingDamage: 0,
+        extruderDamage: 0,
+        bobinCut: 0,
+        ultrasonicProblem: 0,
+        hookDamage: 0,
+        sampleWastage: 0,
+      }));
       setEditingWastageId(null);
     } catch (error) {
       showNotification('error', 'Failed to save wastage.');
@@ -491,14 +579,20 @@ function AppContent() {
         await syncToGoogleSheet({ ...breakdownForm, type: 'Breakdown New' });
         showNotification('success', 'Breakdown entry saved!');
       }
-      setBreakdownForm({
-        date: getTodayDate(),
-        shift: getAutoShift(),
-        machineNo: '',
-        startTime: '',
-        endTime: '',
-        reason: '',
-      });
+      setBreakdownForm(prev => ({
+        date: prev.date,
+        shift: prev.shift,
+        machineNo: prev.machineNo,
+        sizeChange: 0,
+        rollChange: 0,
+        waitingForJob: 0,
+        noOperator: 0,
+        powerCut: 0,
+        machineBreakdown: 0,
+        airProblem: 0,
+        qualityChecked: 0,
+        sampleProductionTime: '',
+      }));
       setEditingBreakdownId(null);
     } catch (error) {
       showNotification('error', 'Failed to save breakdown.');
@@ -603,11 +697,27 @@ function AppContent() {
   };
 
   const exportToExcel = () => {
-    console.log("Exporting production data to Excel...");
-    const ws = XLSX.utils.json_to_sheet(filteredProduction);
+    console.log(`Exporting ${activeSection} data to Excel...`);
+    let data: any[] = [];
+    let fileName = '';
+    
+    if (activeSection === 'production') {
+      data = filteredProduction;
+      fileName = 'Production';
+    } else if (activeSection === 'wastage') {
+      data = filteredWastage;
+      fileName = 'Wastage';
+    } else if (activeSection === 'breakdown') {
+      data = filteredBreakdown;
+      fileName = 'Breakdown';
+    } else {
+      return;
+    }
+    
+    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Production");
-    XLSX.writeFile(wb, `Production_Report_${getTodayDate()}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, fileName);
+    XLSX.writeFile(wb, `${fileName}_Report_${getTodayDate()}.xlsx`);
   };
 
   // Auto-fill logic
@@ -638,16 +748,32 @@ function AppContent() {
     const totalKgs = filteredProduction.reduce((sum, entry) => sum + (Number(entry.rollKgs) || 0), 0);
     
     const totalBreakdownMinutes = filteredBreakdown.reduce((sum, entry) => {
-      if (!entry.startTime || !entry.endTime) return sum;
-      const [startH, startM] = entry.startTime.split(':').map(Number);
-      const [endH, endM] = entry.endTime.split(':').map(Number);
-      let diff = (endH * 60 + endM) - (startH * 60 + startM);
-      if (diff < 0) diff += 24 * 60; // Handle overnight breakdown
-      return sum + diff;
+      return sum + 
+        (Number(entry.sizeChange) || 0) +
+        (Number(entry.rollChange) || 0) +
+        (Number(entry.waitingForJob) || 0) +
+        (Number(entry.noOperator) || 0) +
+        (Number(entry.powerCut) || 0) +
+        (Number(entry.machineBreakdown) || 0) +
+        (Number(entry.airProblem) || 0) +
+        (Number(entry.qualityChecked) || 0);
     }, 0);
 
-    return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes };
-  }, [filteredProduction, filteredBreakdown]);
+    const totalWastage = filteredWastage.reduce((sum, w) => {
+      return sum + 
+        (Number(w.setupDamage) || 0) + 
+        (Number(w.printDamage) || 0) + 
+        (Number(w.cornerCut) || 0) + 
+        (Number(w.cuttingDamage) || 0) + 
+        (Number(w.extruderDamage) || 0) + 
+        (Number(w.bobinCut) || 0) + 
+        (Number(w.ultrasonicProblem) || 0) + 
+        (Number(w.hookDamage) || 0) + 
+        (Number(w.sampleWastage) || 0);
+    }, 0);
+
+    return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes, totalWastage };
+  }, [filteredProduction, filteredBreakdown, filteredWastage]);
 
   const productionTrendData = useMemo(() => {
     // If we have a range, we should show the range, otherwise last 7 days
@@ -670,11 +796,33 @@ function AppContent() {
   }, [productionData, startDate, endDate]);
 
   const wastageChartData = useMemo(() => {
-    const types: Record<string, number> = {};
+    const totals = {
+      'Setup': 0,
+      'Print': 0,
+      'Corner': 0,
+      'Cutting': 0,
+      'Extruder': 0,
+      'Bobin': 0,
+      'Ultrasonic': 0,
+      'Hook': 0,
+      'Sample': 0,
+    };
+    
     filteredWastage.forEach(w => {
-      types[w.wastageType] = (types[w.wastageType] || 0) + (w.weight || 0);
+      totals['Setup'] += Number(w.setupDamage) || 0;
+      totals['Print'] += Number(w.printDamage) || 0;
+      totals['Corner'] += Number(w.cornerCut) || 0;
+      totals['Cutting'] += Number(w.cuttingDamage) || 0;
+      totals['Extruder'] += Number(w.extruderDamage) || 0;
+      totals['Bobin'] += Number(w.bobinCut) || 0;
+      totals['Ultrasonic'] += Number(w.ultrasonicProblem) || 0;
+      totals['Hook'] += Number(w.hookDamage) || 0;
+      totals['Sample'] += Number(w.sampleWastage) || 0;
     });
-    return Object.entries(types).map(([name, value]) => ({ name, value }));
+    
+    return Object.entries(totals)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }));
   }, [filteredWastage]);
 
   const handleNavClick = (section: Section) => {
@@ -854,10 +1002,11 @@ function AppContent() {
         {activeSection === 'dashboard' && (
           <div className="space-y-8">
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
               <StatCard icon={<BarChart3 className="text-blue-600" />} label="Total Production" value={stats.totalProd.toLocaleString()} color="blue" />
               <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
               <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
+              <StatCard icon={<AlertTriangle className="text-amber-600" />} label="Total Wastage" value={stats.totalWastage.toLocaleString()} color="amber" />
               <StatCard icon={<Clock className="text-red-600" />} label="Breakdown Time" value={`${Math.floor(stats.totalBreakdownMinutes / 60)}h ${stats.totalBreakdownMinutes % 60}m`} color="red" />
             </div>
 
@@ -1005,7 +1154,7 @@ function AppContent() {
 
                   {/* Row 3: 1 Column (Description) */}
                   <div className="grid grid-cols-1 gap-6">
-                    <InputGroup label="Description" value={formData.description} disabled />
+                    <InputGroup label="Description" value={formData.description} disabled type="textarea" rows={2} />
                   </div>
 
                   {/* Row 4: 3 Columns */}
@@ -1020,13 +1169,19 @@ function AppContent() {
                     <InputGroup label="Roll Kgs" type="number" value={formData.rollKgs} onChange={v => setFormData({...formData, rollKgs: Number(v)})} />
                     <InputGroup label="Roll ID" value={formData.rollId} onChange={v => setFormData({...formData, rollId: v})} />
                     <InputGroup label="Roll Qty" type="number" value={formData.rollQty} onChange={v => setFormData({...formData, rollQty: Number(v)})} />
+                    <SelectGroup 
+                      label="Unit" 
+                      value={formData.unit || ''} 
+                      onChange={v => setFormData({...formData, unit: v})} 
+                      options={units.map(u => u.name)} 
+                    />
                   </div>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                   <button 
                     type="button" 
-                    onClick={resetForm}
+                    onClick={() => resetForm(false)}
                     className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium"
                   >
                     Cancel
@@ -1188,13 +1343,33 @@ function AppContent() {
                 }}
                 placeholder="OperatorID | OperatorName"
               />
+              <MasterSection 
+                title="Unit Master" 
+                icon={<FileSpreadsheet size={20} />}
+                data={units.map(u => ({ id: u.id, name: u.name }))}
+                onAdd={async (val) => {
+                  try {
+                    await addDoc(collection(db, 'units'), { name: val.trim() });
+                  } catch (error) {
+                    handleFirestoreError(error, OperationType.CREATE, 'units');
+                  }
+                }}
+                onDelete={async (id) => {
+                  try {
+                    await deleteDoc(doc(db, 'units', id));
+                  } catch (error) {
+                    handleFirestoreError(error, OperationType.DELETE, 'units');
+                  }
+                }}
+                placeholder="Unit Name (e.g., Pcs, Kgs)"
+              />
             </div>
           )}
 
           {activeSection === 'wastage' && (
             <div className="space-y-8">
               <form onSubmit={handleSaveWastage} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <InputGroup label="Date" type="date" value={wastageForm.date} onChange={v => setWastageForm({...wastageForm, date: v})} required />
                   <SelectGroup 
                     label="Shift" 
@@ -1209,21 +1384,26 @@ function AppContent() {
                     options={machines.map(m => m.machineNo)} 
                     required 
                   />
-                  <InputGroup 
-                    label="Wastage Type" 
-                    value={wastageForm.wastageType || ''} 
-                    onChange={v => setWastageForm({...wastageForm, wastageType: v})} 
-                    placeholder="e.g., Setup, Edge Trim" 
-                    required 
-                  />
-                  <InputGroup 
-                    label="Weight (Kgs)" 
-                    type="number" 
-                    value={wastageForm.weight} 
-                    onChange={v => setWastageForm({...wastageForm, weight: Number(v)})} 
-                    required 
+                  <SelectGroup 
+                    label="Unit" 
+                    value={wastageForm.unit || ''} 
+                    onChange={v => setWastageForm({...wastageForm, unit: v})} 
+                    options={units.map(u => u.name)} 
                   />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <InputGroup label="Setup Damage" type="number" value={wastageForm.setupDamage} onChange={v => setWastageForm({...wastageForm, setupDamage: Number(v)})} />
+                  <InputGroup label="Print Damage" type="number" value={wastageForm.printDamage} onChange={v => setWastageForm({...wastageForm, printDamage: Number(v)})} />
+                  <InputGroup label="Corner Cut" type="number" value={wastageForm.cornerCut} onChange={v => setWastageForm({...wastageForm, cornerCut: Number(v)})} />
+                  <InputGroup label="Cutting Damage" type="number" value={wastageForm.cuttingDamage} onChange={v => setWastageForm({...wastageForm, cuttingDamage: Number(v)})} />
+                  <InputGroup label="Extruder Damage" type="number" value={wastageForm.extruderDamage} onChange={v => setWastageForm({...wastageForm, extruderDamage: Number(v)})} />
+                  <InputGroup label="Bobin Cut" type="number" value={wastageForm.bobinCut} onChange={v => setWastageForm({...wastageForm, bobinCut: Number(v)})} />
+                  <InputGroup label="Ultrasonic Problem" type="number" value={wastageForm.ultrasonicProblem} onChange={v => setWastageForm({...wastageForm, ultrasonicProblem: Number(v)})} />
+                  <InputGroup label="Hook Damage" type="number" value={wastageForm.hookDamage} onChange={v => setWastageForm({...wastageForm, hookDamage: Number(v)})} />
+                  <InputGroup label="Sample Wastage" type="number" value={wastageForm.sampleWastage} onChange={v => setWastageForm({...wastageForm, sampleWastage: Number(v)})} />
+                </div>
+
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                   {editingWastageId && (
                     <button 
@@ -1234,8 +1414,16 @@ function AppContent() {
                           date: getTodayDate(),
                           shift: getAutoShift(),
                           machineNo: '',
-                          wastageType: '',
-                          weight: 0,
+                          unit: '',
+                          setupDamage: 0,
+                          printDamage: 0,
+                          cornerCut: 0,
+                          cuttingDamage: 0,
+                          extruderDamage: 0,
+                          bobinCut: 0,
+                          ultrasonicProblem: 0,
+                          hookDamage: 0,
+                          sampleWastage: 0,
                         });
                       }}
                       className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium"
@@ -1270,8 +1458,16 @@ function AppContent() {
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
-                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Type</th>
-                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Weight</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Unit</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Setup</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Print</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Corner</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Cutting</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Extruder</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Bobin</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Ultra</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Hook</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Sample</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
@@ -1281,8 +1477,16 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.wastageType}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right font-bold">{item.weight} Kgs</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.unit}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.setupDamage}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.printDamage}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.cornerCut}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.cuttingDamage}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.extruderDamage}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.bobinCut}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.ultrasonicProblem}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.hookDamage}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sampleWastage}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
@@ -1333,16 +1537,20 @@ function AppContent() {
                     options={machines.map(m => m.machineNo)} 
                     required 
                   />
-                  <InputGroup 
-                    label="Reason" 
-                    value={breakdownForm.reason || ''} 
-                    onChange={v => setBreakdownForm({...breakdownForm, reason: v})} 
-                    placeholder="e.g., Mechanical Failure" 
-                    required 
-                  />
-                  <InputGroup label="Start Time" type="time" value={breakdownForm.startTime} onChange={v => setBreakdownForm({...breakdownForm, startTime: v})} required />
-                  <InputGroup label="End Time" type="time" value={breakdownForm.endTime} onChange={v => setBreakdownForm({...breakdownForm, endTime: v})} required />
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <InputGroup label="Size Change" type="number" value={breakdownForm.sizeChange} onChange={v => setBreakdownForm({...breakdownForm, sizeChange: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Roll Change" type="number" value={breakdownForm.rollChange} onChange={v => setBreakdownForm({...breakdownForm, rollChange: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Waiting for job" type="number" value={breakdownForm.waitingForJob} onChange={v => setBreakdownForm({...breakdownForm, waitingForJob: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="No Operator" type="number" value={breakdownForm.noOperator} onChange={v => setBreakdownForm({...breakdownForm, noOperator: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Power Cut" type="number" value={breakdownForm.powerCut} onChange={v => setBreakdownForm({...breakdownForm, powerCut: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Machine Breakdown" type="number" value={breakdownForm.machineBreakdown} onChange={v => setBreakdownForm({...breakdownForm, machineBreakdown: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Air Problem" type="number" value={breakdownForm.airProblem} onChange={v => setBreakdownForm({...breakdownForm, airProblem: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Quality Checked" type="number" value={breakdownForm.qualityChecked} onChange={v => setBreakdownForm({...breakdownForm, qualityChecked: Number(v)})} placeholder="Enter Value" />
+                  <InputGroup label="Sample Production Time" value={breakdownForm.sampleProductionTime} onChange={v => setBreakdownForm({...breakdownForm, sampleProductionTime: v})} placeholder="Enter Time" />
+                </div>
+
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                   {editingBreakdownId && (
                     <button 
@@ -1353,9 +1561,15 @@ function AppContent() {
                           date: getTodayDate(),
                           shift: getAutoShift(),
                           machineNo: '',
-                          startTime: '',
-                          endTime: '',
-                          reason: '',
+                          sizeChange: 0,
+                          rollChange: 0,
+                          waitingForJob: 0,
+                          noOperator: 0,
+                          powerCut: 0,
+                          machineBreakdown: 0,
+                          airProblem: 0,
+                          qualityChecked: 0,
+                          sampleProductionTime: '',
                         });
                       }}
                       className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium"
@@ -1390,8 +1604,15 @@ function AppContent() {
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
-                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Reason</th>
-                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Duration</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Size Chg</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Roll Chg</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Wait Job</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">No Op</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Power</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">M/C B/D</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Air</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Quality</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Sample</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
@@ -1401,8 +1622,15 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.reason}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.startTime} - {item.endTime}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sizeChange}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.rollChange}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.waitingForJob}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.noOperator}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.powerCut}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.machineBreakdown}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.airProblem}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.qualityChecked}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sampleProductionTime}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
@@ -1425,7 +1653,7 @@ function AppContent() {
                       ))}
                       {filteredBreakdown.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
+                          <td colSpan={13} className="px-6 py-12 text-center text-gray-500">No breakdown records found.</td>
                         </tr>
                       )}
                     </tbody>
@@ -1464,9 +1692,11 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode, label:
     purple: "bg-purple-50 border-purple-100 text-purple-600",
     orange: "bg-orange-50 border-orange-100 text-orange-600",
     red: "bg-red-50 border-red-100 text-red-600",
+    amber: "bg-amber-50 border-amber-100 text-amber-600",
   };
+  const colorClasses = colors[color as keyof typeof colors] || colors.blue;
   return (
-    <div className={cn("p-4 md:p-6 rounded-2xl border flex items-center gap-3 md:gap-4 shadow-sm transition-transform hover:scale-[1.02]", colors[color as keyof typeof colors].split(' ')[0], colors[color as keyof typeof colors].split(' ')[1])}>
+    <div className={cn("p-4 md:p-6 rounded-2xl border flex items-center gap-3 md:gap-4 shadow-sm transition-transform hover:scale-[1.02]", colorClasses.split(' ')[0], colorClasses.split(' ')[1])}>
       <div className="p-2.5 md:p-3 bg-white rounded-xl shadow-sm">{icon}</div>
       <div>
         <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
@@ -1476,26 +1706,40 @@ function StatCard({ icon, label, value, color }: { icon: React.ReactNode, label:
   );
 }
 
-function InputGroup({ label, type = "text", value, onChange, required, disabled, className, placeholder }: { label: string, type?: string, value: any, onChange?: (v: string) => void, required?: boolean, disabled?: boolean, className?: string, placeholder?: string }) {
+function InputGroup({ label, type = "text", value, onChange, required, disabled, className, placeholder, rows = 3 }: { label: string, type?: string, value: any, onChange?: (v: string) => void, required?: boolean, disabled?: boolean, className?: string, placeholder?: string, rows?: number }) {
+  const commonClasses = cn(
+    "w-full px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm md:text-base",
+    disabled && "opacity-60 cursor-not-allowed bg-gray-100",
+    className
+  );
+
   return (
     <div className="space-y-1.5">
       <label className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1">
         {label}
         {required && <span className="text-red-500">*</span>}
       </label>
-      <input 
-        type={type}
-        value={value || ''}
-        onChange={e => onChange?.(e.target.value)}
-        required={required}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={cn(
-          "w-full px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-sm md:text-base",
-          disabled && "opacity-60 cursor-not-allowed bg-gray-100",
-          className
-        )}
-      />
+      {type === "textarea" ? (
+        <textarea
+          value={value || ''}
+          onChange={e => onChange?.(e.target.value)}
+          required={required}
+          disabled={disabled}
+          placeholder={placeholder}
+          rows={rows}
+          className={cn(commonClasses, "resize-none")}
+        />
+      ) : (
+        <input 
+          type={type}
+          value={value || ''}
+          onChange={e => onChange?.(e.target.value)}
+          required={required}
+          disabled={disabled}
+          placeholder={placeholder}
+          className={commonClasses}
+        />
+      )}
     </div>
   );
 }
@@ -1530,7 +1774,12 @@ function SelectGroup({ label, value, onChange, options, required }: { label: str
         )}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span className={value ? "text-gray-900 truncate pr-2" : "text-gray-500"}>{value || `Select ${label}`}</span>
+        <span className={cn(
+          "truncate pr-2 whitespace-nowrap",
+          value ? "text-gray-900" : "text-gray-500"
+        )}>
+          {value || `Select ${label}`}
+        </span>
         <ChevronDown size={18} className={cn("text-gray-500 transition-transform shrink-0", isOpen && "rotate-180")} />
       </div>
       
