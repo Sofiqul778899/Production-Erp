@@ -170,7 +170,6 @@ function AppContent() {
     rollKgs: 0,
     rollId: '',
     rollQty: 0,
-    unit: '',
   });
 
   // Form States (Wastage)
@@ -472,7 +471,6 @@ function AppContent() {
       rollKgs: 0,
       rollId: '',
       rollQty: 0,
-      unit: preserveContext ? prev.unit : '',
     }));
     setEditingId(null);
   };
@@ -1118,6 +1116,7 @@ function AppContent() {
                       value={formData.shift || ''} 
                       onChange={v => setFormData({...formData, shift: v as 'Day' | 'Night'})} 
                       options={['Day', 'Night']} 
+                      required
                     />
                     <SelectGroup 
                       label="Machine No" 
@@ -1142,6 +1141,7 @@ function AppContent() {
                       value={formData.piNo || ''} 
                       onChange={v => setFormData({...formData, piNo: v})} 
                       options={[...new Set(pendingOrders.map(o => o.piNo).filter(Boolean))] as string[]} 
+                      required
                     />
                     <SelectGroup 
                       label="Model" 
@@ -1154,27 +1154,21 @@ function AppContent() {
 
                   {/* Row 3: 1 Column (Description) */}
                   <div className="grid grid-cols-1 gap-6">
-                    <InputGroup label="Description" value={formData.description} disabled type="textarea" rows={2} />
+                    <InputGroup label="Description" value={formData.description} disabled type="textarea" rows={2} required />
                   </div>
 
                   {/* Row 4: 3 Columns */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Number(v)})} required />
-                    <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} />
-                    <InputGroup label="Meter" type="number" value={formData.meter} onChange={v => setFormData({...formData, meter: Number(v)})} />
+                    <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} required />
+                    <InputGroup label="Meter" type="number" value={formData.meter} onChange={v => setFormData({...formData, meter: Number(v)})} required />
                   </div>
 
                   {/* Row 5: 3 Columns */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <InputGroup label="Roll Kgs" type="number" value={formData.rollKgs} onChange={v => setFormData({...formData, rollKgs: Number(v)})} />
+                    <InputGroup label="Roll Kgs" type="number" value={formData.rollKgs} onChange={v => setFormData({...formData, rollKgs: Number(v)})} required />
                     <InputGroup label="Roll ID" value={formData.rollId} onChange={v => setFormData({...formData, rollId: v})} />
-                    <InputGroup label="Roll Qty" type="number" value={formData.rollQty} onChange={v => setFormData({...formData, rollQty: Number(v)})} />
-                    <SelectGroup 
-                      label="Unit" 
-                      value={formData.unit || ''} 
-                      onChange={v => setFormData({...formData, unit: v})} 
-                      options={units.map(u => u.name)} 
-                    />
+                    <InputGroup label="Roll Qty" type="number" value={formData.rollQty} onChange={v => setFormData({...formData, rollQty: Number(v)})} required />
                   </div>
                 </div>
 
@@ -1540,15 +1534,15 @@ function AppContent() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-                  <InputGroup label="Size Change" type="number" value={breakdownForm.sizeChange} onChange={v => setBreakdownForm({...breakdownForm, sizeChange: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Roll Change" type="number" value={breakdownForm.rollChange} onChange={v => setBreakdownForm({...breakdownForm, rollChange: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Waiting for job" type="number" value={breakdownForm.waitingForJob} onChange={v => setBreakdownForm({...breakdownForm, waitingForJob: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="No Operator" type="number" value={breakdownForm.noOperator} onChange={v => setBreakdownForm({...breakdownForm, noOperator: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Power Cut" type="number" value={breakdownForm.powerCut} onChange={v => setBreakdownForm({...breakdownForm, powerCut: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Machine Breakdown" type="number" value={breakdownForm.machineBreakdown} onChange={v => setBreakdownForm({...breakdownForm, machineBreakdown: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Air Problem" type="number" value={breakdownForm.airProblem} onChange={v => setBreakdownForm({...breakdownForm, airProblem: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Quality Checked" type="number" value={breakdownForm.qualityChecked} onChange={v => setBreakdownForm({...breakdownForm, qualityChecked: Number(v)})} placeholder="Enter Value" />
-                  <InputGroup label="Sample Production Time" value={breakdownForm.sampleProductionTime} onChange={v => setBreakdownForm({...breakdownForm, sampleProductionTime: v})} placeholder="Enter Time" />
+                  <InputGroup label="Size Change" type="number" value={breakdownForm.sizeChange} onChange={v => setBreakdownForm({...breakdownForm, sizeChange: Number(v)})} />
+                  <InputGroup label="Roll Change" type="number" value={breakdownForm.rollChange} onChange={v => setBreakdownForm({...breakdownForm, rollChange: Number(v)})} />
+                  <InputGroup label="Waiting for job" type="number" value={breakdownForm.waitingForJob} onChange={v => setBreakdownForm({...breakdownForm, waitingForJob: Number(v)})} />
+                  <InputGroup label="No Operator" type="number" value={breakdownForm.noOperator} onChange={v => setBreakdownForm({...breakdownForm, noOperator: Number(v)})} />
+                  <InputGroup label="Power Cut" type="number" value={breakdownForm.powerCut} onChange={v => setBreakdownForm({...breakdownForm, powerCut: Number(v)})} />
+                  <InputGroup label="Machine Breakdown" type="number" value={breakdownForm.machineBreakdown} onChange={v => setBreakdownForm({...breakdownForm, machineBreakdown: Number(v)})} />
+                  <InputGroup label="Air Problem" type="number" value={breakdownForm.airProblem} onChange={v => setBreakdownForm({...breakdownForm, airProblem: Number(v)})} />
+                  <InputGroup label="Quality Checked" type="number" value={breakdownForm.qualityChecked} onChange={v => setBreakdownForm({...breakdownForm, qualityChecked: Number(v)})} />
+                  <InputGroup label="Sample Production Time" value={breakdownForm.sampleProductionTime} onChange={v => setBreakdownForm({...breakdownForm, sampleProductionTime: v})} />
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
@@ -1987,8 +1981,8 @@ function MasterSection({ title, icon, data, onAdd, onDelete, placeholder }: { ti
           data.map((item) => (
             <div key={item.id} className="px-4 py-3.5 flex justify-between items-center hover:bg-gray-50 transition-colors group">
               <div className="flex flex-col">
-                <span className="text-sm font-bold text-gray-900">{item.machineNo || item.operatorId}</span>
-                <span className="text-xs text-gray-500">{item.machineName || item.operatorName || 'No Name Provided'}</span>
+                <span className="text-sm font-bold text-gray-900">{item.machineNo || item.operatorId || item.name}</span>
+                <span className="text-xs text-gray-500">{item.machineName || item.operatorName || (item.name ? 'Unit' : 'No Name Provided')}</span>
               </div>
               <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                 <Trash2 size={16} />

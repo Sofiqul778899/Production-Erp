@@ -143,30 +143,21 @@ service cloud.firestore {
 
     // Master Data (Machines, Operators, PendingOrders, Units)
     match /machines/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
     match /operators/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
     match /pendingOrders/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
     match /units/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // Connection Test Collection
     match /test/{id} {
-      allow read: if isAuthenticated();
-    }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+      allow read: if true;
     }
   }
 }

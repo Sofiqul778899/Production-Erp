@@ -82,6 +82,15 @@
         "description": { "type": "string", "description": "Description of the model." }
       },
       "required": ["piNo", "model"]
+    },
+    "Unit": {
+      "title": "Unit",
+      "description": "Unit master data.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the unit." }
+      },
+      "required": ["name"]
     }
   },
   "firestore": {
@@ -90,6 +99,7 @@
     "/breakdown": { "schema": { "$ref": "BreakdownEntry" }, "description": "Collection of breakdown entries." },
     "/machines": { "schema": { "$ref": "Machine" }, "description": "Collection of machines." },
     "/operators": { "schema": { "$ref": "Operator" }, "description": "Collection of operators." },
-    "/pendingOrders": { "schema": { "$ref": "PendingOrder" }, "description": "Collection of pending orders." }
+    "/pendingOrders": { "schema": { "$ref": "PendingOrder" }, "description": "Collection of pending orders." },
+    "/units": { "schema": { "$ref": "Unit" }, "description": "Collection of units." }
   }
 }

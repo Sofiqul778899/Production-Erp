@@ -13,7 +13,6 @@ export interface ProductionEntry {
   rollKgs: number;
   rollId: string;
   rollQty: number;
-  unit: string;
   createdAt: any;
 }
 
