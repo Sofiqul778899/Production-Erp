@@ -164,6 +164,7 @@ function AppContent() {
     description: '',
     material: '',
     thickness: '',
+    machineSpeed: 0,
     productionQty: 0,
     packetQty: 0,
     meter: 0,
@@ -442,6 +443,7 @@ function AppContent() {
         entry.operatorId === formData.operatorId &&
         entry.piNo === formData.piNo &&
         entry.model === formData.model &&
+        entry.machineSpeed === formData.machineSpeed &&
         entry.productionQty === formData.productionQty &&
         entry.packetQty === formData.packetQty &&
         entry.meter === formData.meter &&
@@ -491,6 +493,7 @@ function AppContent() {
       piNo: '',
       model: '',
       description: '',
+      machineSpeed: 0,
       productionQty: 0,
       packetQty: 0,
       meter: 0,
@@ -1233,8 +1236,9 @@ function AppContent() {
                     <InputGroup label="Description" value={formData.description} disabled type="textarea" rows={2} required />
                   </div>
 
-                  {/* Row 4: 3 Columns */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Row 4: 4 Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <InputGroup label="Machine Speed" type="number" value={formData.machineSpeed} onChange={v => setFormData({...formData, machineSpeed: Number(v)})} required />
                     <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Number(v)})} required />
                     <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} required />
                     <InputGroup label="Meter" type="number" value={formData.meter} disabled required />

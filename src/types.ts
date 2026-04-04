@@ -7,6 +7,7 @@ export interface ProductionEntry {
   piNo: string;
   model: string;
   description: string;
+  machineSpeed: number;
   productionQty: number;
   packetQty: number;
   meter: number;

@@ -12,6 +12,7 @@
         "piNo": { "type": "string", "description": "Production Instruction number." },
         "model": { "type": "string", "description": "Model identifier." },
         "description": { "type": "string", "description": "Description of the model." },
+        "machineSpeed": { "type": "number", "description": "Speed of the machine." },
         "material": { "type": "string", "description": "Material used." },
         "thickness": { "type": "string", "description": "Thickness of the material." },
         "productionQty": { "type": "number", "description": "Quantity produced." },
