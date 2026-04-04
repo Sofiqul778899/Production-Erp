@@ -74,4 +74,5 @@ export interface PendingOrder {
   piNo: string;
   model: string;
   description: string;
+  cylinderSizeMM: number;
 }

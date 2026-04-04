@@ -177,7 +177,7 @@ function AppContent() {
     date: getTodayDate(),
     shift: getAutoShift(),
     machineNo: '',
-    unit: '',
+    unit: 'Kgs',
     setupDamage: 0,
     printDamage: 0,
     cornerCut: 0,
@@ -194,7 +194,7 @@ function AppContent() {
     date: getTodayDate(),
     shift: getAutoShift(),
     machineNo: '',
-    unit: '',
+    unit: 'Minute',
     sizeChange: 0,
     rollChange: 0,
     waitingForJob: 0,
@@ -249,6 +249,19 @@ function AppContent() {
       return matchesDate && matchesSearch;
     });
   }, [breakdownData, startDate, endDate, breakdownSearchTerm]);
+
+  // Auto-calculate Meter in Production Form
+  useEffect(() => {
+    if (formData.productionQty && formData.piNo && formData.model) {
+      const order = pendingOrders.find(o => o.piNo === formData.piNo && o.model === formData.model);
+      if (order && order.cylinderSizeMM) {
+        const calculatedMeter = (formData.productionQty * order.cylinderSizeMM) / 1000;
+        if (formData.meter !== calculatedMeter) {
+          setFormData(prev => ({ ...prev, meter: Number(calculatedMeter.toFixed(2)) }));
+        }
+      }
+    }
+  }, [formData.productionQty, formData.piNo, formData.model, pendingOrders]);
 
   // Sidebar Responsiveness
   useEffect(() => {
@@ -524,7 +537,7 @@ function AppContent() {
         date: prev.date,
         shift: prev.shift,
         machineNo: prev.machineNo,
-        unit: prev.unit,
+        unit: prev.unit || 'Kgs',
         setupDamage: 0,
         printDamage: 0,
         cornerCut: 0,
@@ -586,7 +599,7 @@ function AppContent() {
         date: prev.date,
         shift: prev.shift,
         machineNo: prev.machineNo,
-        unit: prev.unit || '',
+        unit: prev.unit || 'Minute',
         sizeChange: 0,
         rollChange: 0,
         waitingForJob: 0,
@@ -680,6 +693,7 @@ function AppContent() {
               piNo: getVal(['pino', 'pi', 'pinumber']),
               model: getVal(['model', 'modelno', 'modelnumber']),
               description: getVal(['description', 'desc']),
+              cylinderSizeMM: Number(getVal(['cylindersizemm', 'cylindersize', 'size'])) || 0,
               createdAt: serverTimestamp()
             });
           }
@@ -1167,7 +1181,7 @@ function AppContent() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Number(v)})} required />
                     <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} required />
-                    <InputGroup label="Meter" type="number" value={formData.meter} onChange={v => setFormData({...formData, meter: Number(v)})} required />
+                    <InputGroup label="Meter" type="number" value={formData.meter} disabled required />
                   </div>
 
                   {/* Row 5: 3 Columns */}

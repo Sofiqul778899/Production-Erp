@@ -94,7 +94,8 @@
       "properties": {
         "piNo": { "type": "string", "description": "PI number." },
         "model": { "type": "string", "description": "Model identifier." },
-        "description": { "type": "string", "description": "Description of the model." }
+        "description": { "type": "string", "description": "Description of the model." },
+        "cylinderSizeMM": { "type": "number", "description": "Cylinder size in MM." }
       },
       "required": ["piNo", "model"]
     },
