@@ -390,8 +390,12 @@ function AppContent() {
     }, (error) => handleFirestoreError(error, OperationType.GET, 'pendingOrders'));
 
     const unsubUnits = onSnapshot(collection(db, 'units'), (snapshot) => {
+      console.log("Units data updated:", snapshot.size, "docs");
       setUnits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit)));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'units'));
+    }, (error) => {
+      console.error("Units listener error:", error);
+      handleFirestoreError(error, OperationType.GET, 'units');
+    });
 
     return () => {
       unsubProduction();
@@ -1303,7 +1307,9 @@ function AppContent() {
                   try {
                     const [no, name] = val.split('|');
                     await addDoc(collection(db, 'machines'), { machineNo: no.trim(), machineName: name?.trim() || '' });
+                    showNotification('success', 'Machine added successfully!');
                   } catch (error) {
+                    showNotification('error', 'Failed to add machine.');
                     handleFirestoreError(error, OperationType.CREATE, 'machines');
                   }
                 }}
@@ -1324,7 +1330,9 @@ function AppContent() {
                   try {
                     const [id, name] = val.split('|');
                     await addDoc(collection(db, 'operators'), { operatorId: id.trim(), operatorName: name?.trim() || '' });
+                    showNotification('success', 'Operator added successfully!');
                   } catch (error) {
+                    showNotification('error', 'Failed to add operator.');
                     handleFirestoreError(error, OperationType.CREATE, 'operators');
                   }
                 }}
@@ -1344,7 +1352,9 @@ function AppContent() {
                 onAdd={async (val) => {
                   try {
                     await addDoc(collection(db, 'units'), { name: val.trim() });
+                    showNotification('success', 'Unit added successfully!');
                   } catch (error) {
+                    showNotification('error', 'Failed to add unit.');
                     handleFirestoreError(error, OperationType.CREATE, 'units');
                   }
                 }}
