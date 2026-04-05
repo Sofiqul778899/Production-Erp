@@ -40,7 +40,8 @@ import {
   Clock,
   TrendingUp,
   PieChart as PieChartIcon,
-  Activity
+  Activity,
+  X
 } from 'lucide-react';
 import { 
   collection, 
@@ -66,7 +67,8 @@ import type {
   Machine, 
   Operator, 
   PendingOrder,
-  Unit
+  Unit,
+  RollEntry
 } from './types';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -125,7 +127,7 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
-type Section = 'dashboard' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
+type Section = 'dashboard' | 'roll-entry' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
 
 export default function App() {
   return (
@@ -144,6 +146,14 @@ function AppContent() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [authTimeout, setAuthTimeout] = useState(false);
 
+  // Quick Add States
+  const [showQuickAddMachine, setShowQuickAddMachine] = useState(false);
+  const [showQuickAddOperator, setShowQuickAddOperator] = useState(false);
+  const [showQuickAddUnit, setShowQuickAddUnit] = useState(false);
+  const [quickAddMachine, setQuickAddMachine] = useState({ no: '', name: '' });
+  const [quickAddOperator, setQuickAddOperator] = useState({ id: '', name: '' });
+  const [quickAddUnit, setQuickAddUnit] = useState('');
+
   // Data States
   const [productionData, setProductionData] = useState<ProductionEntry[]>([]);
   const [wastageData, setWastageData] = useState<WastageEntry[]>([]);
@@ -152,6 +162,13 @@ function AppContent() {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [rollData, setRollData] = useState<RollEntry[]>([]);
+
+  // Form States (Roll Entry)
+  const [rollForm, setRollForm] = useState<Partial<RollEntry>>({
+    rollId: '',
+    rollKg: 0,
+  });
 
   // Form States (Production)
   const [formData, setFormData] = useState<Partial<ProductionEntry>>({
@@ -210,6 +227,7 @@ function AppContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingWastageId, setEditingWastageId] = useState<string | null>(null);
   const [editingBreakdownId, setEditingBreakdownId] = useState<string | null>(null);
+  const [editingRollId, setEditingRollId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [wastageSearchTerm, setWastageSearchTerm] = useState('');
   const [breakdownSearchTerm, setBreakdownSearchTerm] = useState('');
@@ -412,6 +430,10 @@ function AppContent() {
       handleFirestoreError(error, OperationType.GET, 'units');
     });
 
+    const unsubRolls = onSnapshot(collection(db, 'rolls'), (snapshot) => {
+      setRollData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RollEntry)));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'rolls'));
+
     return () => {
       unsubProduction();
       unsubWastage();
@@ -420,6 +442,7 @@ function AppContent() {
       unsubOperators();
       unsubPending();
       unsubUnits();
+      unsubRolls();
     };
   }, [isAuthReady]);
 
@@ -606,6 +629,64 @@ function AppContent() {
       } catch (error) {
         showNotification('error', 'Failed to delete wastage entry.');
         handleFirestoreError(error, OperationType.DELETE, 'wastage');
+      }
+    }
+  };
+
+  const handleSaveRoll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Saving roll entry:", rollForm);
+    setIsLoading(true);
+    try {
+      // Duplicate check
+      const isDuplicate = rollData.some(entry => 
+        entry.id !== editingRollId &&
+        entry.rollId === rollForm.rollId &&
+        entry.rollKg === rollForm.rollKg
+      );
+
+      if (isDuplicate) {
+        showNotification('error', 'Exact duplicate roll entry found!');
+        setIsLoading(false);
+        return;
+      }
+
+      if (editingRollId) {
+        await updateDoc(doc(db, 'rolls', editingRollId), {
+          ...rollForm,
+          updatedAt: serverTimestamp()
+        });
+        showNotification('success', 'Roll entry updated!');
+      } else {
+        await addDoc(collection(db, 'rolls'), {
+          ...rollForm,
+          createdAt: serverTimestamp()
+        });
+        showNotification('success', 'Roll entry saved!');
+      }
+      setRollForm({ rollId: '', rollKg: 0 });
+      setEditingRollId(null);
+    } catch (error) {
+      showNotification('error', 'Failed to save roll entry.');
+      handleFirestoreError(error, editingRollId ? OperationType.UPDATE : OperationType.CREATE, 'rolls');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditRoll = (entry: RollEntry) => {
+    setRollForm(entry);
+    setEditingRollId(entry.id || null);
+  };
+
+  const handleDeleteRoll = async (id: string) => {
+    if (confirm('Are you sure you want to delete this roll entry?')) {
+      try {
+        await deleteDoc(doc(db, 'rolls', id));
+        showNotification('success', 'Roll entry deleted!');
+      } catch (error) {
+        showNotification('error', 'Failed to delete roll entry.');
+        handleFirestoreError(error, OperationType.DELETE, 'rolls');
       }
     }
   };
@@ -902,6 +983,34 @@ function AppContent() {
       .map(([name, value]) => ({ name, value }));
   }, [filteredWastage]);
 
+  const handleQuickAdd = async (type: 'machine' | 'operator' | 'unit') => {
+    setIsLoading(true);
+    try {
+      if (type === 'machine') {
+        if (!quickAddMachine.no || !quickAddMachine.name) return;
+        await addDoc(collection(db, 'machines'), { machineNo: quickAddMachine.no, machineName: quickAddMachine.name });
+        setShowQuickAddMachine(false);
+        setQuickAddMachine({ no: '', name: '' });
+      } else if (type === 'operator') {
+        if (!quickAddOperator.id || !quickAddOperator.name) return;
+        await addDoc(collection(db, 'operators'), { operatorId: quickAddOperator.id, operatorName: quickAddOperator.name });
+        setShowQuickAddOperator(false);
+        setQuickAddOperator({ id: '', name: '' });
+      } else if (type === 'unit') {
+        if (!quickAddUnit.trim()) return;
+        await addDoc(collection(db, 'units'), { name: quickAddUnit.trim() });
+        setShowQuickAddUnit(false);
+        setQuickAddUnit('');
+      }
+      showNotification('success', `${type} added successfully!`);
+    } catch (error) {
+      showNotification('error', `Failed to add ${type}.`);
+      handleFirestoreError(error, OperationType.CREATE, type === 'unit' ? 'units' : type === 'machine' ? 'machines' : 'operators');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleNavClick = (section: Section) => {
     setActiveSection(section);
     if (window.innerWidth < 768) {
@@ -956,6 +1065,13 @@ function AppContent() {
               label="Dashboard" 
               active={activeSection === 'dashboard'} 
               onClick={() => handleNavClick('dashboard')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<Activity size={20} />} 
+              label="Roll Entry" 
+              active={activeSection === 'roll-entry'} 
+              onClick={() => handleNavClick('roll-entry')} 
               collapsed={!isSidebarOpen}
             />
             <NavItem 
@@ -1184,6 +1300,85 @@ function AppContent() {
         )}
 
         <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-100 p-8", activeSection === 'dashboard' && "hidden")}>
+          {activeSection === 'roll-entry' && (
+            <div className="space-y-12">
+              <form onSubmit={handleSaveRoll} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <InputGroup 
+                    label="Roll ID" 
+                    value={rollForm.rollId} 
+                    onChange={v => setRollForm({...rollForm, rollId: v})} 
+                    required 
+                  />
+                  <InputGroup 
+                    label="Roll Kg" 
+                    type="number" 
+                    value={rollForm.rollKg} 
+                    onChange={v => setRollForm({...rollForm, rollKg: Number(v)})} 
+                    required 
+                  />
+                </div>
+                <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
+                  <button 
+                    type="button" 
+                    onClick={() => { setRollForm({ rollId: '', rollKg: 0 }); setEditingRollId(null); }}
+                    className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold shadow-lg shadow-blue-100 flex items-center gap-2"
+                  >
+                    {editingRollId ? <Edit size={18} /> : <PlusCircle size={18} />}
+                    <span>{editingRollId ? 'Update Roll' : 'Save Roll'}</span>
+                  </button>
+                </div>
+              </form>
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                  <h3 className="font-bold text-gray-900 text-lg">Roll Entries List</h3>
+                  <span className="text-sm text-gray-500">{rollData.length} rolls recorded</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold">Roll ID</th>
+                        <th className="px-6 py-4 font-semibold text-right">Weight (Kg)</th>
+                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {rollData.map((roll) => (
+                        <tr key={roll.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-medium">{roll.rollId}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono">{roll.rollKg}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => handleEditRoll(roll)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <Edit size={16} />
+                              </button>
+                              <button onClick={() => handleDeleteRoll(roll.id!)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {rollData.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-12 text-center text-gray-500 italic">No rolls recorded yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeSection === 'production' && (
             <div className="space-y-12">
               <form onSubmit={handleSaveProduction} className="space-y-8">
@@ -1202,6 +1397,7 @@ function AppContent() {
                       value={formData.machineNo || ''} 
                       onChange={v => setFormData({...formData, machineNo: v})} 
                       options={machines.map(m => m.machineNo)} 
+                      onQuickAdd={() => setShowQuickAddMachine(true)}
                       required
                     />
                     <SelectGroup 
@@ -1209,6 +1405,7 @@ function AppContent() {
                       value={formData.operatorId || ''} 
                       onChange={v => setFormData({...formData, operatorId: v})} 
                       options={operators.map(o => o.operatorId)} 
+                      onQuickAdd={() => setShowQuickAddOperator(true)}
                       required
                     />
                   </div>
@@ -1239,8 +1436,8 @@ function AppContent() {
                   {/* Row 4: 4 Columns */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <InputGroup label="Machine Speed" type="number" value={formData.machineSpeed} onChange={v => setFormData({...formData, machineSpeed: Number(v)})} required />
-                    <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Number(v)})} required />
-                    <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Number(v)})} required />
+                    <InputGroup label="Production Qty" type="number" value={formData.productionQty} onChange={v => setFormData({...formData, productionQty: Math.floor(Number(v))})} required />
+                    <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Math.floor(Number(v))})} required />
                     <InputGroup label="Meter" type="number" value={formData.meter} disabled required />
                   </div>
 
@@ -1389,6 +1586,16 @@ function AppContent() {
                     handleFirestoreError(error, OperationType.CREATE, 'machines');
                   }
                 }}
+                onUpdate={async (id, val) => {
+                  try {
+                    const [no, name] = val.split('|');
+                    await updateDoc(doc(db, 'machines', id), { machineNo: no.trim(), machineName: name?.trim() || '' });
+                    showNotification('success', 'Machine updated successfully!');
+                  } catch (error) {
+                    showNotification('error', 'Failed to update machine.');
+                    handleFirestoreError(error, OperationType.UPDATE, 'machines');
+                  }
+                }}
                 onDelete={async (id) => {
                   try {
                     await deleteDoc(doc(db, 'machines', id));
@@ -1412,6 +1619,16 @@ function AppContent() {
                     handleFirestoreError(error, OperationType.CREATE, 'operators');
                   }
                 }}
+                onUpdate={async (id, val) => {
+                  try {
+                    const [opId, name] = val.split('|');
+                    await updateDoc(doc(db, 'operators', id), { operatorId: opId.trim(), operatorName: name?.trim() || '' });
+                    showNotification('success', 'Operator updated successfully!');
+                  } catch (error) {
+                    showNotification('error', 'Failed to update operator.');
+                    handleFirestoreError(error, OperationType.UPDATE, 'operators');
+                  }
+                }}
                 onDelete={async (id) => {
                   try {
                     await deleteDoc(doc(db, 'operators', id));
@@ -1432,6 +1649,15 @@ function AppContent() {
                   } catch (error) {
                     showNotification('error', 'Failed to add unit.');
                     handleFirestoreError(error, OperationType.CREATE, 'units');
+                  }
+                }}
+                onUpdate={async (id, val) => {
+                  try {
+                    await updateDoc(doc(db, 'units', id), { name: val.trim() });
+                    showNotification('success', 'Unit updated successfully!');
+                  } catch (error) {
+                    showNotification('error', 'Failed to update unit.');
+                    handleFirestoreError(error, OperationType.UPDATE, 'units');
                   }
                 }}
                 onDelete={async (id) => {
@@ -1462,6 +1688,7 @@ function AppContent() {
                     value={wastageForm.machineNo || ''} 
                     onChange={v => setWastageForm({...wastageForm, machineNo: v})} 
                     options={machines.map(m => m.machineNo)} 
+                    onQuickAdd={() => setShowQuickAddMachine(true)}
                     required 
                   />
                   <SelectGroup 
@@ -1469,6 +1696,7 @@ function AppContent() {
                     value={wastageForm.unit || ''} 
                     onChange={v => setWastageForm({...wastageForm, unit: v})} 
                     options={units.map(u => u.name)} 
+                    onQuickAdd={() => setShowQuickAddUnit(true)}
                   />
                 </div>
 
@@ -1615,6 +1843,7 @@ function AppContent() {
                     value={breakdownForm.machineNo || ''} 
                     onChange={v => setBreakdownForm({...breakdownForm, machineNo: v})} 
                     options={machines.map(m => m.machineNo)} 
+                    onQuickAdd={() => setShowQuickAddMachine(true)}
                     required 
                   />
                   <SelectGroup 
@@ -1622,6 +1851,7 @@ function AppContent() {
                     value={breakdownForm.unit || ''} 
                     onChange={v => setBreakdownForm({...breakdownForm, unit: v})} 
                     options={units.map(u => u.name)} 
+                    onQuickAdd={() => setShowQuickAddUnit(true)}
                     required 
                   />
                 </div>
@@ -1753,6 +1983,99 @@ function AppContent() {
           )}
         </div>
       </div>
+
+      {/* Quick Add Modals */}
+      {showQuickAddMachine && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-lg font-bold">Quick Add Machine</h3>
+              <button onClick={() => setShowQuickAddMachine(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <InputGroup label="Machine No" value={quickAddMachine.no} onChange={v => setQuickAddMachine({...quickAddMachine, no: v})} required />
+              <InputGroup label="Machine Name" value={quickAddMachine.name} onChange={v => setQuickAddMachine({...quickAddMachine, name: v})} required />
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setShowQuickAddMachine(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button>
+                <button 
+                  onClick={() => handleQuickAdd('machine')}
+                  disabled={!quickAddMachine.no || !quickAddMachine.name || isLoading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Add Machine'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showQuickAddOperator && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-lg font-bold">Quick Add Operator</h3>
+              <button onClick={() => setShowQuickAddOperator(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <InputGroup label="Operator ID" value={quickAddOperator.id} onChange={v => setQuickAddOperator({...quickAddOperator, id: v})} required />
+              <InputGroup label="Operator Name" value={quickAddOperator.name} onChange={v => setQuickAddOperator({...quickAddOperator, name: v})} required />
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setShowQuickAddOperator(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button>
+                <button 
+                  onClick={() => handleQuickAdd('operator')}
+                  disabled={!quickAddOperator.id || !quickAddOperator.name || isLoading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Add Operator'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showQuickAddUnit && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-lg font-bold">Quick Add Unit</h3>
+              <button onClick={() => setShowQuickAddUnit(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <InputGroup label="Unit Name" value={quickAddUnit} onChange={setQuickAddUnit} required />
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setShowQuickAddUnit(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button>
+                <button 
+                  onClick={() => handleQuickAdd('unit')}
+                  disabled={!quickAddUnit || isLoading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Add Unit'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </main>
   </div>
   );
@@ -1833,7 +2156,7 @@ function InputGroup({ label, type = "text", value, onChange, required, disabled,
   );
 }
 
-function SelectGroup({ label, value, onChange, options, required }: { label: string, value: string, onChange: (v: string) => void, options: string[], required?: boolean }) {
+function SelectGroup({ label, value, onChange, options, required, onQuickAdd }: { label: string, value: string, onChange: (v: string) => void, options: string[], required?: boolean, onQuickAdd?: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -1852,10 +2175,22 @@ function SelectGroup({ label, value, onChange, options, required }: { label: str
 
   return (
     <div className="space-y-1.5 relative" ref={dropdownRef}>
-      <label className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1">
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1">
+          {label}
+          {required && <span className="text-red-500">*</span>}
+        </label>
+        {onQuickAdd && (
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
+            className="text-blue-600 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 transition-colors"
+            title={`Add new ${label}`}
+          >
+            <PlusCircle size={14} />
+          </button>
+        )}
+      </div>
       <div 
         className={cn(
           "w-full px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer flex justify-between items-center transition-all text-sm md:text-base",
@@ -2045,8 +2380,29 @@ function FilterSelect({ placeholder, value, onChange, options, icon }: { placeho
   );
 }
 
-function MasterSection({ title, icon, data, onAdd, onDelete, placeholder }: { title: string, icon: React.ReactNode, data: any[], onAdd: (v: string) => void, onDelete: (id: string) => void, placeholder: string }) {
+function MasterSection({ title, icon, data, onAdd, onUpdate, onDelete, placeholder }: { title: string, icon: React.ReactNode, data: any[], onAdd: (v: string) => void, onUpdate: (id: string, v: string) => void, onDelete: (id: string) => void, placeholder: string }) {
   const [val, setVal] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleEdit = (item: any) => {
+    setEditingId(item.id);
+    const displayValue = item.machineNo ? `${item.machineNo} | ${item.machineName}` : 
+                        item.operatorId ? `${item.operatorId} | ${item.operatorName}` : 
+                        item.name || '';
+    setVal(displayValue);
+  };
+
+  const handleSubmit = () => {
+    if (!val) return;
+    if (editingId) {
+      onUpdate(editingId, val);
+      setEditingId(null);
+    } else {
+      onAdd(val);
+    }
+    setVal('');
+  };
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
       <div className="flex items-center gap-3 text-lg font-bold text-gray-900 border-b border-gray-50 pb-4">
@@ -2060,14 +2416,22 @@ function MasterSection({ title, icon, data, onAdd, onDelete, placeholder }: { ti
           className="flex-1 px-3 py-2 md:px-4 md:py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm md:text-base"
           value={val}
           onChange={e => setVal(e.target.value)}
-          onKeyDown={e => { if(e.key === 'Enter' && val) { onAdd(val); setVal(''); } }}
+          onKeyDown={e => { if(e.key === 'Enter') handleSubmit(); }}
         />
         <button 
-          onClick={() => { if(val) { onAdd(val); setVal(''); } }}
+          onClick={handleSubmit}
           className="px-3 py-2 md:px-4 md:py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm md:text-base shadow-sm"
         >
-          Add
+          {editingId ? 'Update' : 'Add'}
         </button>
+        {editingId && (
+          <button 
+            onClick={() => { setEditingId(null); setVal(''); }}
+            className="px-3 py-2 md:px-4 md:py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-semibold text-sm md:text-base shadow-sm"
+          >
+            Cancel
+          </button>
+        )}
       </div>
       <div className="max-h-[400px] overflow-y-auto rounded-xl border border-gray-100 divide-y divide-gray-50">
         {data.length === 0 ? (
@@ -2079,9 +2443,14 @@ function MasterSection({ title, icon, data, onAdd, onDelete, placeholder }: { ti
                 <span className="text-sm font-bold text-gray-900">{item.machineNo || item.operatorId || item.name}</span>
                 <span className="text-xs text-gray-500">{item.machineName || item.operatorName || (item.name ? 'Unit' : 'No Name Provided')}</span>
               </div>
-              <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                <Trash2 size={16} />
-              </button>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => handleEdit(item)} className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-all">
+                  <Edit size={16} />
+                </button>
+                <button onClick={() => onDelete(item.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all">
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))
         )}

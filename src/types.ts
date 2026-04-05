@@ -77,3 +77,10 @@ export interface PendingOrder {
   description: string;
   cylinderSizeMM: number;
 }
+
+export interface RollEntry {
+  id?: string;
+  rollId: string;
+  rollKg: number;
+  createdAt: any;
+}
