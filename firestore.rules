@@ -1,138 +1,45 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: production
-    // Fields:
-    //   - productionDate: string (required)
-    //   - shift: string (required, enum: Day, Night)
-    //   - machineNo: string (required)
-    //   - operatorId: string (required)
-    //   - model: string (required)
-    //   - productionQty: number (required)
-    //   - createdAt: timestamp (required)
-    //
-    // Collection: wastage
-    // Fields:
-    //   - date: string (required)
-    //   - shift: string (required)
-    //   - machineNo: string (required)
-    //   - unit: string (required)
-    //   - createdAt: timestamp (required)
-    //
-    // Collection: breakdown
-    // Fields:
-    //   - date: string (required)
-    //   - shift: string (required)
-    //   - machineNo: string (required)
-    //   - unit: string (required)
-    //   - createdAt: timestamp (required)
-    //
-    // Collection: units, machines, operators, pendingOrders
-    // Master data collections.
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
-         (request.auth.token.email == "datafusion611@gmail.com" && request.auth.token.email_verified == true));
-    }
-
+    
+    // Helper Functions (Public access allowed)
+    function isAuthenticated() { return true; }
+    function isAdmin() { return true; }
+    
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
     }
 
-    function isValidProduction(data) {
-      return data.productionDate is string &&
-             data.shift in ['Day', 'Night'] &&
-             data.machineNo is string &&
-             data.operatorId is string &&
-             data.model is string &&
-             data.productionQty is number &&
-             data.productionQty >= 0;
+    function isValidRoll(data) {
+      return data.rollId is string &&
+             data.rollKg is number &&
+             data.rollKg >= 0;
     }
 
-    function isValidWastage(data) {
-      return data.date is string &&
-             data.shift in ['Day', 'Night'] &&
-             data.machineNo is string &&
-             data.unit is string;
-    }
-
-    function isValidBreakdown(data) {
-      return data.date is string &&
-             data.shift in ['Day', 'Night'] &&
-             data.machineNo is string &&
-             data.unit is string;
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    // Master Data (Machines, Operators, PendingOrders, Units)
-    // Public read, Admin write
-    match /machines/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    match /operators/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    match /pendingOrders/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    match /units/{id} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    // Production Entries
-    match /production/{id} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasRequiredFields(['productionDate', 'shift', 'machineNo', 'operatorId', 'model', 'productionQty', 'createdAt']) && isValidProduction(request.resource.data);
-      allow update: if isAuthenticated() && isValidProduction(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    // Wastage Entries
-    match /wastage/{id} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'unit', 'createdAt']) && isValidWastage(request.resource.data);
-      allow update: if isAuthenticated() && isValidWastage(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    // Breakdown Entries
-    match /breakdown/{id} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && hasRequiredFields(['date', 'shift', 'machineNo', 'unit', 'createdAt']) && isValidBreakdown(request.resource.data);
-      allow update: if isAuthenticated() && isValidBreakdown(request.resource.data);
-      allow delete: if isAdmin();
-    }
-
-    // Connection Test Collection
-    match /test/{id} {
+    // Production, Wastage, and Breakdown Entries
+    match /production/{id} { allow read, write: if true; }
+    match /wastage/{id} { allow read, write: if true; }
+    match /breakdown/{id} { allow read, write: if true; }
+    
+    // Master Data
+    match /machines/{id} { allow read, write: if true; }
+    match /operators/{id} { allow read, write: if true; }
+    match /pendingOrders/{id} { allow read, write: if true; }
+    match /units/{id} { allow read, write: if true; }
+    
+    // Roll Entries (Public Access)
+    match /rolls/{id} {
       allow read: if true;
+      allow create: if hasRequiredFields(['rollId', 'rollKg', 'createdAt']) && 
+                    isValidRoll(request.resource.data);
+      allow update: if isValidRoll(request.resource.data);
+      allow delete: if true;
     }
+
+    // Connection Test
+    match /test/{id} { allow read: if true; }
 
     // Default deny for everything else
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
-
