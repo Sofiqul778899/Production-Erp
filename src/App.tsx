@@ -254,12 +254,17 @@ function AppContent() {
                            entry.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            entry.operatorId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            entry.piNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           entry.rollId.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesMachine = !filterMachine || entry.machineNo === filterMachine;
+                           (entry.rollId && entry.rollId.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // If a machine is selected in the entry form, filter by it. 
+      // Otherwise, use the filterMachine dropdown value.
+      const effectiveMachineFilter = formData.machineNo || filterMachine;
+      const matchesMachine = !effectiveMachineFilter || entry.machineNo === effectiveMachineFilter;
+      
       const matchesShift = !filterShift || entry.shift === filterShift;
       return matchesDate && matchesSearch && matchesMachine && matchesShift;
     });
-  }, [productionData, startDate, endDate, searchTerm, filterMachine, filterShift]);
+  }, [productionData, startDate, endDate, searchTerm, filterMachine, filterShift, formData.machineNo]);
 
   const filteredWastage = useMemo(() => {
     return wastageData.filter(entry => {
