@@ -195,9 +195,6 @@ function AppContent() {
     productionQty: 0,
     packetQty: 0,
     meter: 0,
-    rollKgs: 0,
-    rollId: '',
-    rollQty: 0,
   });
 
   // Form States (Wastage)
@@ -507,10 +504,7 @@ function AppContent() {
         entry.machineSpeed === formData.machineSpeed &&
         entry.productionQty === formData.productionQty &&
         entry.packetQty === formData.packetQty &&
-        entry.meter === formData.meter &&
-        entry.rollKgs === formData.rollKgs &&
-        entry.rollId === formData.rollId &&
-        entry.rollQty === formData.rollQty
+        entry.meter === formData.meter
       );
 
       if (isDuplicate) {
@@ -519,19 +513,22 @@ function AppContent() {
         return;
       }
 
+      // Prepare data for saving (exclude roll fields)
+      const { rollKgs, rollId, rollQty, ...saveData } = formData;
+
       if (editingId) {
         await updateDoc(doc(db, 'production', editingId), {
-          ...formData,
+          ...saveData,
           updatedAt: serverTimestamp()
         });
-        await syncToGoogleSheet({ ...formData, type: 'Production Update' });
+        await syncToGoogleSheet({ ...saveData, type: 'Production Update' });
         showNotification('success', 'Entry updated successfully!');
       } else {
         await addDoc(collection(db, 'production'), {
-          ...formData,
+          ...saveData,
           createdAt: serverTimestamp()
         });
-        await syncToGoogleSheet({ ...formData, type: 'Production New' });
+        await syncToGoogleSheet({ ...saveData, type: 'Production New' });
         showNotification('success', 'Entry saved successfully!');
       }
 
@@ -558,9 +555,6 @@ function AppContent() {
       productionQty: 0,
       packetQty: 0,
       meter: 0,
-      rollKgs: 0,
-      rollId: '',
-      rollQty: 0,
     }));
     setEditingId(null);
   };
@@ -1042,6 +1036,53 @@ function AppContent() {
     const totalMachines = new Set(filteredTargetData.map(t => t.machineNo)).size;
     return { totalTargetQty, totalMachines };
   }, [filteredTargetData]);
+
+  const productionSummary = useMemo(() => {
+    const today = getTodayDate();
+    const selectedMachine = formData.machineNo;
+    
+    // Filter targets for today
+    let targetsForToday = targetData.filter(t => t.date === today);
+    // Filter production for today
+    let productionForToday = productionData.filter(p => p.productionDate === today);
+
+    if (selectedMachine) {
+      targetsForToday = targetsForToday.filter(t => t.machineNo === selectedMachine);
+      productionForToday = productionForToday.filter(p => p.machineNo === selectedMachine);
+    }
+
+    // Group by machine
+    const machineStats: Record<string, { target: number; production: number }> = {};
+
+    // Initialize with targets
+    targetsForToday.forEach(t => {
+      if (!machineStats[t.machineNo]) {
+        machineStats[t.machineNo] = { target: 0, production: 0 };
+      }
+      machineStats[t.machineNo].target += t.targetQty;
+    });
+
+    // Add production
+    productionForToday.forEach(p => {
+      if (!machineStats[p.machineNo]) {
+        machineStats[p.machineNo] = { target: 0, production: 0 };
+      }
+      machineStats[p.machineNo].production += p.productionQty;
+    });
+
+    // If no targets or production found for selected machine, but machine is selected, show it with 0s
+    if (selectedMachine && !machineStats[selectedMachine]) {
+      machineStats[selectedMachine] = { target: 0, production: 0 };
+    }
+
+    return Object.entries(machineStats).map(([machineNo, stats]) => ({
+      machineNo,
+      target: stats.target,
+      production: stats.production,
+      required: Math.max(0, stats.target - stats.production),
+      achievement: stats.target > 0 ? (stats.production / stats.target) * 100 : 0
+    }));
+  }, [targetData, productionData, formData.machineNo]);
 
   const productionTrendData = useMemo(() => {
     // If we have a range, we should show the range, otherwise last 7 days
@@ -1753,13 +1794,6 @@ function AppContent() {
                     <InputGroup label="Packet Qty" type="number" value={formData.packetQty} onChange={v => setFormData({...formData, packetQty: Math.floor(Number(v))})} required />
                     <InputGroup label="Meter" type="number" value={formData.meter} disabled required />
                   </div>
-
-                  {/* Row 5: 3 Columns */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <InputGroup label="Roll Kgs" type="number" value={formData.rollKgs} onChange={v => setFormData({...formData, rollKgs: Number(v)})} required />
-                    <InputGroup label="Roll ID" value={formData.rollId} onChange={v => setFormData({...formData, rollId: v})} />
-                    <InputGroup label="Roll Qty" type="number" value={formData.rollQty} onChange={v => setFormData({...formData, rollQty: Number(v)})} required />
-                  </div>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
@@ -1779,6 +1813,73 @@ function AppContent() {
                   </button>
                 </div>
               </form>
+
+              {/* Production Summary Report */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">Production Status Summary</h3>
+                    <p className="text-sm text-gray-500">Status for {getTodayDate()}</p>
+                  </div>
+                  <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                    {formData.machineNo ? `Machine: ${formData.machineNo}` : 'All Machines'}
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold">Machine No</th>
+                        <th className="px-6 py-4 font-semibold text-right">Target</th>
+                        <th className="px-6 py-4 font-semibold text-right">Production Qty</th>
+                        <th className="px-6 py-4 font-semibold text-right">Require Qty</th>
+                        <th className="px-6 py-4 font-semibold text-right">Achieve %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {productionSummary.map((row) => (
+                        <tr key={row.machineNo} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-medium">{row.machineNo}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono">{row.target.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono text-blue-600 font-bold">{row.production.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono">
+                            <span className={cn(
+                              "px-2 py-1 rounded-lg",
+                              row.required > 0 ? "bg-orange-50 text-orange-700" : "bg-green-50 text-green-700"
+                            )}>
+                              {row.required.toLocaleString()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right font-mono">
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={cn(
+                                "font-bold",
+                                row.achievement >= 100 ? "text-green-600" : row.achievement >= 50 ? "text-blue-600" : "text-orange-600"
+                              )}>
+                                {row.achievement.toFixed(1)}%
+                              </span>
+                              <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full transition-all duration-500",
+                                    row.achievement >= 100 ? "bg-green-500" : row.achievement >= 50 ? "bg-blue-500" : "bg-orange-500"
+                                  )}
+                                  style={{ width: `${Math.min(100, row.achievement)}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {productionSummary.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-gray-500 italic">No target or production data found for today.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               <div className="space-y-6 pt-8 border-t border-gray-100">
                 <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
