@@ -68,7 +68,8 @@ import type {
   Operator, 
   PendingOrder,
   Unit,
-  RollEntry
+  RollEntry,
+  TargetEntry
 } from './types';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
@@ -127,7 +128,7 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
-type Section = 'dashboard' | 'roll-entry' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
+type Section = 'dashboard' | 'roll-entry' | 'target' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
 
 export default function App() {
   return (
@@ -163,11 +164,20 @@ function AppContent() {
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [rollData, setRollData] = useState<RollEntry[]>([]);
+  const [targetData, setTargetData] = useState<TargetEntry[]>([]);
 
   // Form States (Roll Entry)
   const [rollForm, setRollForm] = useState<Partial<RollEntry>>({
+    date: getTodayDate(),
     rollId: '',
     rollKg: 0,
+  });
+
+  // Form States (Target Entry)
+  const [targetForm, setTargetForm] = useState<Partial<TargetEntry>>({
+    date: getTodayDate(),
+    machineNo: '',
+    targetQty: 0,
   });
 
   // Form States (Production)
@@ -228,9 +238,12 @@ function AppContent() {
   const [editingWastageId, setEditingWastageId] = useState<string | null>(null);
   const [editingBreakdownId, setEditingBreakdownId] = useState<string | null>(null);
   const [editingRollId, setEditingRollId] = useState<string | null>(null);
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [wastageSearchTerm, setWastageSearchTerm] = useState('');
   const [breakdownSearchTerm, setBreakdownSearchTerm] = useState('');
+  const [rollSearchTerm, setRollSearchTerm] = useState('');
+  const [targetSearchTerm, setTargetSearchTerm] = useState('');
   const [filterMachine, setFilterMachine] = useState('');
   const [filterShift, setFilterShift] = useState('');
   const [startDate, setStartDate] = useState(getTodayDate());
@@ -270,6 +283,24 @@ function AppContent() {
       return matchesDate && matchesSearch;
     });
   }, [breakdownData, startDate, endDate, breakdownSearchTerm]);
+
+  const filteredRollData = useMemo(() => {
+    return rollData.filter(entry => {
+      const date = entry.date;
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesSearch = entry.rollId.toLowerCase().includes(rollSearchTerm.toLowerCase());
+      return matchesDate && matchesSearch;
+    });
+  }, [rollData, startDate, endDate, rollSearchTerm]);
+
+  const filteredTargetData = useMemo(() => {
+    return targetData.filter(entry => {
+      const date = entry.date;
+      const matchesDate = date >= startDate && date <= endDate;
+      const matchesSearch = entry.machineNo.toLowerCase().includes(targetSearchTerm.toLowerCase());
+      return matchesDate && matchesSearch;
+    });
+  }, [targetData, startDate, endDate, targetSearchTerm]);
 
   // Auto-calculate Meter in Production Form
   useEffect(() => {
@@ -436,6 +467,10 @@ function AppContent() {
       setRollData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RollEntry)));
     }, (error) => handleFirestoreError(error, OperationType.GET, 'rolls'));
 
+    const unsubTargets = onSnapshot(collection(db, 'targets'), (snapshot) => {
+      setTargetData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TargetEntry)));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'targets'));
+
     return () => {
       unsubProduction();
       unsubWastage();
@@ -445,6 +480,7 @@ function AppContent() {
       unsubPending();
       unsubUnits();
       unsubRolls();
+      unsubTargets();
     };
   }, [isAuthReady]);
 
@@ -643,6 +679,7 @@ function AppContent() {
       // Duplicate check
       const isDuplicate = rollData.some(entry => 
         entry.id !== editingRollId &&
+        entry.date === rollForm.date &&
         entry.rollId === rollForm.rollId &&
         entry.rollKg === rollForm.rollKg
       );
@@ -666,7 +703,7 @@ function AppContent() {
         });
         showNotification('success', 'Roll entry saved!');
       }
-      setRollForm({ rollId: '', rollKg: 0 });
+      setRollForm({ date: getTodayDate(), rollId: '', rollKg: 0 });
       setEditingRollId(null);
     } catch (error) {
       showNotification('error', 'Failed to save roll entry.');
@@ -689,6 +726,65 @@ function AppContent() {
       } catch (error) {
         showNotification('error', 'Failed to delete roll entry.');
         handleFirestoreError(error, OperationType.DELETE, 'rolls');
+      }
+    }
+  };
+
+  const handleSaveTarget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Saving target entry:", targetForm);
+    setIsLoading(true);
+    try {
+      // Duplicate check
+      const isDuplicate = targetData.some(entry => 
+        entry.id !== editingTargetId &&
+        entry.date === targetForm.date &&
+        entry.machineNo === targetForm.machineNo &&
+        entry.targetQty === targetForm.targetQty
+      );
+
+      if (isDuplicate) {
+        showNotification('error', 'Exact duplicate target entry found!');
+        setIsLoading(false);
+        return;
+      }
+
+      if (editingTargetId) {
+        await updateDoc(doc(db, 'targets', editingTargetId), {
+          ...targetForm,
+          updatedAt: serverTimestamp()
+        });
+        showNotification('success', 'Target entry updated!');
+      } else {
+        await addDoc(collection(db, 'targets'), {
+          ...targetForm,
+          createdAt: serverTimestamp()
+        });
+        showNotification('success', 'Target entry saved!');
+      }
+      setTargetForm({ date: getTodayDate(), machineNo: '', targetQty: 0 });
+      setEditingTargetId(null);
+    } catch (error) {
+      showNotification('error', 'Failed to save target entry.');
+      handleFirestoreError(error, editingTargetId ? OperationType.UPDATE : OperationType.CREATE, 'targets');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditTarget = (entry: TargetEntry) => {
+    setTargetForm(entry);
+    setEditingTargetId(entry.id || null);
+  };
+
+  const handleDeleteTarget = async (id: string) => {
+    if (confirm('Are you sure you want to delete this target entry?')) {
+      try {
+        await deleteDoc(doc(db, 'targets', id));
+        showNotification('success', 'Target entry deleted!');
+      } catch (error) {
+        showNotification('error', 'Failed to delete target entry.');
+        handleFirestoreError(error, OperationType.DELETE, 'targets');
       }
     }
   };
@@ -935,6 +1031,18 @@ function AppContent() {
     return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes, totalWastage };
   }, [filteredProduction, filteredBreakdown, filteredWastage]);
 
+  const rollSummary = useMemo(() => {
+    const totalRolls = filteredRollData.length;
+    const totalWeight = filteredRollData.reduce((sum, roll) => sum + (roll.rollKg || 0), 0);
+    return { totalRolls, totalWeight };
+  }, [filteredRollData]);
+
+  const targetSummary = useMemo(() => {
+    const totalTargetQty = filteredTargetData.reduce((sum, target) => sum + (target.targetQty || 0), 0);
+    const totalMachines = new Set(filteredTargetData.map(t => t.machineNo)).size;
+    return { totalTargetQty, totalMachines };
+  }, [filteredTargetData]);
+
   const productionTrendData = useMemo(() => {
     // If we have a range, we should show the range, otherwise last 7 days
     const start = new Date(startDate);
@@ -1067,6 +1175,13 @@ function AppContent() {
               label="Dashboard" 
               active={activeSection === 'dashboard'} 
               onClick={() => handleNavClick('dashboard')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
+              icon={<TrendingUp size={20} />} 
+              label="Target" 
+              active={activeSection === 'target'} 
+              onClick={() => handleNavClick('target')} 
               collapsed={!isSidebarOpen}
             />
             <NavItem 
@@ -1304,8 +1419,43 @@ function AppContent() {
         <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-100 p-8", activeSection === 'dashboard' && "hidden")}>
           {activeSection === 'roll-entry' && (
             <div className="space-y-12">
-              <form onSubmit={handleSaveRoll} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Roll Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                    <Cpu size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Rolls</p>
+                    <h4 className="text-3xl font-bold text-gray-900">{rollSummary.totalRolls}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Filtered by date range</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
+                  <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+                    <TrendingUp size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Weight (Kg)</p>
+                    <h4 className="text-3xl font-bold text-gray-900">{rollSummary.totalWeight.toLocaleString()}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Filtered by date range</p>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveRoll} className="space-y-8 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <PlusCircle className="text-blue-600" size={20} />
+                  <h3 className="text-lg font-bold">New Roll Entry</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <InputGroup 
+                    label="Date of Entry" 
+                    type="date"
+                    value={rollForm.date} 
+                    onChange={v => setRollForm({...rollForm, date: v})} 
+                    required 
+                  />
                   <InputGroup 
                     label="Roll ID" 
                     value={rollForm.rollId} 
@@ -1323,7 +1473,7 @@ function AppContent() {
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
                   <button 
                     type="button" 
-                    onClick={() => { setRollForm({ rollId: '', rollKg: 0 }); setEditingRollId(null); }}
+                    onClick={() => { setRollForm({ date: getTodayDate(), rollId: '', rollKg: 0 }); setEditingRollId(null); }}
                     className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium"
                   >
                     Cancel
@@ -1339,22 +1489,38 @@ function AppContent() {
               </form>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-                  <h3 className="font-bold text-gray-900 text-lg">Roll Entries List</h3>
-                  <span className="text-sm text-gray-500">{rollData.length} rolls recorded</span>
+                <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex flex-col">
+                    <h3 className="font-bold text-gray-900 text-lg">Roll Entries List</h3>
+                    <p className="text-sm text-gray-500">
+                      {startDate === endDate ? `Records for ${startDate}` : `Records from ${startDate} to ${endDate}`}
+                    </p>
+                  </div>
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Search Roll ID..." 
+                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      value={rollSearchTerm}
+                      onChange={e => setRollSearchTerm(e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <tr>
+                        <th className="px-6 py-4 font-semibold">Date</th>
                         <th className="px-6 py-4 font-semibold">Roll ID</th>
                         <th className="px-6 py-4 font-semibold text-right">Weight (Kg)</th>
                         <th className="px-6 py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {rollData.map((roll) => (
+                      {filteredRollData.map((roll) => (
                         <tr key={roll.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm">{roll.date}</td>
                           <td className="px-6 py-4 text-sm font-medium">{roll.rollId}</td>
                           <td className="px-6 py-4 text-sm text-right font-mono">{roll.rollKg}</td>
                           <td className="px-6 py-4 text-right">
@@ -1369,9 +1535,154 @@ function AppContent() {
                           </td>
                         </tr>
                       ))}
-                      {rollData.length === 0 && (
+                      {filteredRollData.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="px-6 py-12 text-center text-gray-500 italic">No rolls recorded yet.</td>
+                          <td colSpan={4} className="px-6 py-12 text-center text-gray-500 italic">No rolls found for the selected date range.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'target' && (
+            <div className="space-y-12">
+              {/* Target Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                    <Settings size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Machine</p>
+                    <h4 className="text-3xl font-bold text-gray-900">{targetSummary.totalMachines}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Unique machines</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
+                  <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
+                    <BarChart3 size={28} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Target</p>
+                    <h4 className="text-3xl font-bold text-gray-900">{targetSummary.totalTargetQty.toLocaleString()}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Filtered by date range</p>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveTarget} className="space-y-8 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <PlusCircle className="text-blue-600" size={20} />
+                  <h3 className="text-lg font-bold">New Target Entry</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <InputGroup 
+                    label="Date" 
+                    type="date"
+                    value={targetForm.date} 
+                    onChange={v => setTargetForm({...targetForm, date: v})} 
+                    required 
+                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      Machine No
+                      <button type="button" onClick={() => setShowQuickAddMachine(true)} className="text-blue-600 hover:text-blue-700">
+                        <PlusCircle size={14} />
+                      </button>
+                    </label>
+                    <select 
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm"
+                      value={targetForm.machineNo}
+                      onChange={e => setTargetForm({...targetForm, machineNo: e.target.value})}
+                      required
+                    >
+                      <option value="">Select Machine</option>
+                      {machines.map(m => (
+                        <option key={m.id} value={m.machineNo}>
+                          {m.machineNo}{m.machineName && m.machineName.trim() ? ` - ${m.machineName}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <InputGroup 
+                    label="Target Qty" 
+                    type="number" 
+                    value={targetForm.targetQty} 
+                    onChange={v => setTargetForm({...targetForm, targetQty: Number(v)})} 
+                    required 
+                  />
+                </div>
+                <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
+                  <button 
+                    type="button" 
+                    onClick={() => { setTargetForm({ date: getTodayDate(), machineNo: '', targetQty: 0 }); setEditingTargetId(null); }}
+                    className="px-6 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold shadow-lg shadow-blue-100 flex items-center gap-2"
+                  >
+                    {editingTargetId ? <Edit size={18} /> : <PlusCircle size={18} />}
+                    <span>{editingTargetId ? 'Update Target' : 'Save Target'}</span>
+                  </button>
+                </div>
+              </form>
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex flex-col">
+                    <h3 className="font-bold text-gray-900 text-lg">Target Entries List</h3>
+                    <p className="text-sm text-gray-500">
+                      {startDate === endDate ? `Records for ${startDate}` : `Records from ${startDate} to ${endDate}`}
+                    </p>
+                  </div>
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Search Machine No..." 
+                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      value={targetSearchTerm}
+                      onChange={e => setTargetSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold">Date</th>
+                        <th className="px-6 py-4 font-semibold">Machine No</th>
+                        <th className="px-6 py-4 font-semibold text-right">Target Qty</th>
+                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredTargetData.map((target) => (
+                        <tr key={target.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 text-sm">{target.date}</td>
+                          <td className="px-6 py-4 text-sm font-medium">{target.machineNo}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono">{target.targetQty.toLocaleString()}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => handleEditTarget(target)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <Edit size={16} />
+                              </button>
+                              <button onClick={() => handleDeleteTarget(target.id!)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredTargetData.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-gray-500 italic">No targets found for the selected date range.</td>
                         </tr>
                       )}
                     </tbody>

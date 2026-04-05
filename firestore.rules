@@ -23,6 +23,9 @@ service cloud.firestore {
     // Roll Entries
     match /rolls/{id} { allow read, write: if true; }
 
+    // Target Entries
+    match /targets/{id} { allow read, write: if true; }
+
     // Connection Test
     match /test/{id} { allow read: if true; }
 

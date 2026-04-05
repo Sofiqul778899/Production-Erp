@@ -80,7 +80,16 @@ export interface PendingOrder {
 
 export interface RollEntry {
   id?: string;
+  date: string;
   rollId: string;
   rollKg: number;
+  createdAt: any;
+}
+
+export interface TargetEntry {
+  id?: string;
+  date: string;
+  machineNo: string;
+  targetQty: number;
   createdAt: any;
 }
