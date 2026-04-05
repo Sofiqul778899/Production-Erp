@@ -242,7 +242,9 @@ function AppContent() {
       const matchesDate = date >= startDate && date <= endDate;
       const matchesSearch = entry.machineNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            entry.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           entry.operatorId.toLowerCase().includes(searchTerm.toLowerCase());
+                           entry.operatorId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           entry.piNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           entry.rollId.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesMachine = !filterMachine || entry.machineNo === filterMachine;
       const matchesShift = !filterShift || entry.shift === filterShift;
       return matchesDate && matchesSearch && matchesMachine && matchesShift;
@@ -1505,9 +1507,17 @@ function AppContent() {
                       <tr>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
-                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine No</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Machine No</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">PI No</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Model</th>
-                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Qty</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Description</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Speed</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Prod Qty</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Pkt Qty</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Meter</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Roll Kg</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Roll ID</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Roll Qty</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Operator</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
@@ -1515,7 +1525,7 @@ function AppContent() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredProduction.map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.productionDate}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{entry.productionDate}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">
                             <span className={cn(
                               "px-2 py-1 rounded-full text-[10px] md:text-xs font-medium",
@@ -1524,10 +1534,18 @@ function AppContent() {
                               {entry.shift}
                             </span>
                           </td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{entry.machineNo}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.model}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium whitespace-nowrap">{entry.machineNo}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{entry.piNo}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium whitespace-nowrap">{entry.model}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm max-w-xs truncate" title={entry.description}>{entry.description}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.machineSpeed}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.productionQty}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500">{entry.operatorId}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.packetQty}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.meter}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.rollKgs}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{entry.rollId}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.rollQty}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500 whitespace-nowrap">{entry.operatorId}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button onClick={() => handleEdit(entry)} className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
@@ -1542,7 +1560,7 @@ function AppContent() {
                       ))}
                       {filteredProduction.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan={15} className="px-6 py-12 text-center text-gray-500">
                             No production records found matching your filters.
                           </td>
                         </tr>

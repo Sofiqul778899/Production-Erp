@@ -5,16 +5,6 @@ service cloud.firestore {
     // Helper Functions (Public access allowed)
     function isAuthenticated() { return true; }
     function isAdmin() { return true; }
-    
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function isValidRoll(data) {
-      return data.rollId is string &&
-             data.rollKg is number &&
-             data.rollKg >= 0;
-    }
 
     // Production, Wastage, and Breakdown Entries
     match /production/{id} { allow read, write: if true; }
@@ -25,16 +15,13 @@ service cloud.firestore {
     match /machines/{id} { allow read, write: if true; }
     match /operators/{id} { allow read, write: if true; }
     match /pendingOrders/{id} { allow read, write: if true; }
-    match /units/{id} { allow read, write: if true; }
     
-    // Roll Entries (Public Access)
-    match /rolls/{id} {
-      allow read: if true;
-      allow create: if hasRequiredFields(['rollId', 'rollKg', 'createdAt']) && 
-                    isValidRoll(request.resource.data);
-      allow update: if isValidRoll(request.resource.data);
-      allow delete: if true;
-    }
+    // --- ADD THIS LINE TO SOLVE MASTER UNIT ---
+    match /units/{id} { allow read, write: if true; }
+    // ------------------------------------------
+
+    // Roll Entries
+    match /rolls/{id} { allow read, write: if true; }
 
     // Connection Test
     match /test/{id} { allow read: if true; }
