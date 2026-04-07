@@ -58,7 +58,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet } from './utils';
+import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet, formatDate } from './utils';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { 
   ProductionEntry, 
@@ -999,8 +999,8 @@ function AppContent() {
 
   const stats = useMemo(() => {
     const totalProd = filteredProduction.reduce((sum, entry) => sum + (Number(entry.productionQty) || 0), 0);
-    const totalRolls = filteredProduction.reduce((sum, entry) => sum + (Number(entry.rollQty) || 0), 0);
-    const totalKgs = filteredProduction.reduce((sum, entry) => sum + (Number(entry.rollKgs) || 0), 0);
+    const totalRolls = filteredRollData.length;
+    const totalKgs = filteredRollData.reduce((sum, roll) => sum + (Number(roll.rollKg) || 0), 0);
     
     const totalBreakdownMinutes = filteredBreakdown.reduce((sum, entry) => {
       return sum + 
@@ -1027,8 +1027,10 @@ function AppContent() {
         (Number(w.sampleWastage) || 0);
     }, 0);
 
-    return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes, totalWastage };
-  }, [filteredProduction, filteredBreakdown, filteredWastage]);
+    const totalTarget = filteredTargetData.reduce((sum, t) => sum + (Number(t.targetQty) || 0), 0);
+
+    return { totalProd, totalRolls, totalKgs, totalBreakdownMinutes, totalWastage, totalTarget };
+  }, [filteredProduction, filteredBreakdown, filteredWastage, filteredTargetData, filteredRollData]);
 
   const rollSummary = useMemo(() => {
     const totalRolls = filteredRollData.length;
@@ -1104,10 +1106,11 @@ function AppContent() {
     }).reverse();
     
     return dates.map(date => ({
-      date: date.split('-').slice(1).join('/'),
-      qty: productionData.filter(p => p.productionDate === date).reduce((sum, p) => sum + (p.productionQty || 0), 0)
+      date: formatDate(date),
+      qty: productionData.filter(p => p.productionDate === date).reduce((sum, p) => sum + (p.productionQty || 0), 0),
+      target: targetData.filter(t => t.date === date).reduce((sum, t) => sum + (t.targetQty || 0), 0)
     }));
-  }, [productionData, startDate, endDate]);
+  }, [productionData, targetData, startDate, endDate]);
 
   const wastageChartData = useMemo(() => {
     const totals = {
@@ -1358,7 +1361,8 @@ function AppContent() {
         {activeSection === 'dashboard' && (
           <div className="space-y-8">
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
+              <StatCard icon={<TrendingUp className="text-emerald-600" />} label="Total Target" value={stats.totalTarget.toLocaleString()} color="emerald" />
               <StatCard icon={<BarChart3 className="text-blue-600" />} label="Total Production" value={stats.totalProd.toLocaleString()} color="blue" />
               <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
               <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
@@ -1373,20 +1377,22 @@ function AppContent() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold flex items-center gap-2">
                     <Activity size={20} className="text-blue-600" />
-                    Production Trend {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}
+                    Production Trend {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}
                   </h3>
                 </div>
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={productionTrendData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6b7280' }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                         cursor={{ fill: '#f9fafb' }}
                       />
-                      <Bar dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+                      <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px' }} />
+                      <Bar name="Target" dataKey="target" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
+                      <Bar name="Production" dataKey="qty" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1397,7 +1403,7 @@ function AppContent() {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold flex items-center gap-2">
                     <PieChartIcon size={20} className="text-orange-600" />
-                    Wastage by Type {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}
+                    Wastage by Type {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}
                   </h3>
                 </div>
                 <div className="h-[300px] w-full">
@@ -1429,7 +1435,7 @@ function AppContent() {
             {/* Recent Activity */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-lg font-bold">Production Entries {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
+                <h3 className="text-lg font-bold">Production Entries {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
                 <button onClick={() => handleNavClick('production')} className="text-blue-600 text-sm font-semibold hover:underline">View All</button>
               </div>
               <div className="overflow-x-auto">
@@ -1446,7 +1452,7 @@ function AppContent() {
                   <tbody className="divide-y divide-gray-100">
                     {filteredProduction.slice(0, 5).map((entry) => (
                       <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.productionDate}</td>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{formatDate(entry.productionDate)}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{entry.machineNo}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.model}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.productionQty}</td>
@@ -1566,7 +1572,7 @@ function AppContent() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredRollData.map((roll) => (
                         <tr key={roll.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 text-sm">{roll.date}</td>
+                          <td className="px-6 py-4 text-sm">{formatDate(roll.date)}</td>
                           <td className="px-6 py-4 text-sm font-medium">{roll.rollId}</td>
                           <td className="px-6 py-4 text-sm text-right font-mono">{roll.rollKg}</td>
                           <td className="px-6 py-4 text-right">
@@ -1711,7 +1717,7 @@ function AppContent() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredTargetData.map((target) => (
                         <tr key={target.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4 text-sm">{target.date}</td>
+                          <td className="px-6 py-4 text-sm">{formatDate(target.date)}</td>
                           <td className="px-6 py-4 text-sm font-medium">{target.machineNo}</td>
                           <td className="px-6 py-4 text-sm text-right font-mono">{target.targetQty.toLocaleString()}</td>
                           <td className="px-6 py-4 text-right">
@@ -1824,7 +1830,7 @@ function AppContent() {
                 <div className="p-6 border-b border-gray-50 flex justify-between items-center">
                   <div>
                     <h3 className="font-bold text-gray-900 text-lg">Production Status Summary</h3>
-                    <p className="text-sm text-gray-500">Status for {getTodayDate()}</p>
+                    <p className="text-sm text-gray-500">Status for {formatDate(getTodayDate())}</p>
                   </div>
                   <div className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
                     {formData.machineNo ? `Machine: ${formData.machineNo}` : 'All Machines'}
@@ -1888,7 +1894,7 @@ function AppContent() {
 
               <div className="space-y-6 pt-8 border-t border-gray-100">
                 <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
-                  <h3 className="text-xl font-bold">Production History {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
+                  <h3 className="text-xl font-bold">Production History {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
                   <div className="flex flex-col md:flex-row gap-4 flex-1 max-w-3xl justify-end">
                     <div className="relative flex-1 max-w-md">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -1942,7 +1948,7 @@ function AppContent() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredProduction.map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{entry.productionDate}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{formatDate(entry.productionDate)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">
                             <span className={cn(
                               "px-2 py-1 rounded-full text-[10px] md:text-xs font-medium",
@@ -2182,7 +2188,7 @@ function AppContent() {
 
               <div className="mt-12 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Wastage History {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
+                  <h3 className="text-xl font-bold">Wastage History {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
@@ -2217,7 +2223,7 @@ function AppContent() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredWastage.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{formatDate(item.date)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.unit}</td>
@@ -2337,7 +2343,7 @@ function AppContent() {
 
               <div className="mt-12 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Breakdown History {startDate === endDate ? `(${startDate})` : `(${startDate} to ${endDate})`}</h3>
+                  <h3 className="text-xl font-bold">Breakdown History {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <input 
@@ -2372,7 +2378,7 @@ function AppContent() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredBreakdown.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.date}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{formatDate(item.date)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.unit}</td>
