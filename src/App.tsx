@@ -62,7 +62,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet, formatDate } from './utils';
+import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet, formatDate, formatNumber } from './utils';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { 
   ProductionEntry, 
@@ -322,7 +322,7 @@ function AppContent() {
       'Ultra Problem': e.ultrasonicProblem,
       'Hook Damage': e.hookDamage,
       'Sample Wastage': e.sampleWastage,
-      'Total Kg': (Number(e.setupDamage)||0) + (Number(e.printDamage)||0) + (Number(e.cornerCut)||0) + (Number(e.cuttingDamage)||0) + (Number(e.extruderDamage)||0) + (Number(e.bobinCut)||0) + (Number(e.ultrasonicProblem)||0) + (Number(e.hookDamage)||0) + (Number(e.sampleWastage)||0)
+      'Total Kg': formatNumber((Number(e.setupDamage)||0) + (Number(e.printDamage)||0) + (Number(e.cornerCut)||0) + (Number(e.cuttingDamage)||0) + (Number(e.extruderDamage)||0) + (Number(e.bobinCut)||0) + (Number(e.ultrasonicProblem)||0) + (Number(e.hookDamage)||0) + (Number(e.sampleWastage)||0))
     }));
     const wastWs = XLSX.utils.json_to_sheet(wastData);
     XLSX.utils.book_append_sheet(wb, wastWs, "Wastage");
@@ -341,7 +341,7 @@ function AppContent() {
       'Air Problem': e.airProblem,
       'Quality Check': e.qualityChecked,
       'Sample Time': e.sampleProductionTime,
-      'Total B/D': (Number(e.sizeChange)||0) + (Number(e.rollChange)||0) + (Number(e.waitingForJob)||0) + (Number(e.noOperator)||0) + (Number(e.powerCut)||0) + (Number(e.machineBreakdown)||0) + (Number(e.airProblem)||0) + (Number(e.qualityChecked)||0)
+      'Total B/D': formatNumber((Number(e.sizeChange)||0) + (Number(e.rollChange)||0) + (Number(e.waitingForJob)||0) + (Number(e.noOperator)||0) + (Number(e.powerCut)||0) + (Number(e.machineBreakdown)||0) + (Number(e.airProblem)||0) + (Number(e.qualityChecked)||0))
     }));
     const breakdWs = XLSX.utils.json_to_sheet(breakdData);
     XLSX.utils.book_append_sheet(wb, breakdWs, "Breakdown");
@@ -364,7 +364,7 @@ function AppContent() {
     autoTable(doc, {
       startY: 50,
       head: [['Date', 'Shift', 'Machine', 'Job', 'Prod Qty', 'Meter']],
-      body: prod.map(e => [e.productionDate, e.shift, e.machineNo, e.jobName, e.productionQty, e.meter]),
+      body: prod.map(e => [e.productionDate, e.shift, e.machineNo, e.jobName, formatNumber(e.productionQty), formatNumber(e.meter)]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [59, 130, 246] }
     });
@@ -385,7 +385,7 @@ function AppContent() {
         e.setupDamage, 
         e.printDamage, 
         e.cuttingDamage,
-        ((Number(e.setupDamage)||0) + (Number(e.printDamage)||0) + (Number(e.cornerCut)||0) + (Number(e.cuttingDamage)||0) + (Number(e.extruderDamage)||0) + (Number(e.bobinCut)||0) + (Number(e.ultrasonicProblem)||0) + (Number(e.hookDamage)||0) + (Number(e.sampleWastage)||0)).toFixed(2)
+        (formatNumber((Number(e.setupDamage)||0) + (Number(e.printDamage)||0) + (Number(e.cornerCut)||0) + (Number(e.cuttingDamage)||0) + (Number(e.extruderDamage)||0) + (Number(e.bobinCut)||0) + (Number(e.ultrasonicProblem)||0) + (Number(e.hookDamage)||0) + (Number(e.sampleWastage)||0)))
       ]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [245, 158, 11] }
@@ -407,7 +407,7 @@ function AppContent() {
         e.sizeChange, 
         e.rollChange, 
         e.machineBreakdown,
-        ((Number(e.sizeChange)||0) + (Number(e.rollChange)||0) + (Number(e.waitingForJob)||0) + (Number(e.noOperator)||0) + (Number(e.powerCut)||0) + (Number(e.machineBreakdown)||0) + (Number(e.airProblem)||0) + (Number(e.qualityChecked)||0)).toFixed(2)
+        (formatNumber((Number(e.sizeChange)||0) + (Number(e.rollChange)||0) + (Number(e.waitingForJob)||0) + (Number(e.noOperator)||0) + (Number(e.powerCut)||0) + (Number(e.machineBreakdown)||0) + (Number(e.airProblem)||0) + (Number(e.qualityChecked)||0)))
       ]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [239, 68, 68] }
@@ -1639,11 +1639,11 @@ function AppContent() {
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
               <StatCard icon={<TrendingUp className="text-emerald-600" />} label="Total Target" value={stats.totalTarget.toLocaleString()} color="emerald" />
-              <StatCard icon={<BarChart3 className={COMPANY_CONFIG.themeColor} />} label="Total Production" value={stats.totalProd.toLocaleString()} color="blue" />
+              <StatCard icon={<BarChart3 className={COMPANY_CONFIG.themeColor} />} label="Total Production" value={formatNumber(stats.totalProd)} color="blue" />
               <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
-              <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
-              <StatCard icon={<AlertTriangle className="text-amber-600" />} label="Total Wastage" value={stats.totalWastage.toLocaleString()} color="amber" />
-              <StatCard icon={<Clock className="text-red-600" />} label="Breakdown Time" value={`${Math.floor(stats.totalBreakdownMinutes / 60)}h ${(stats.totalBreakdownMinutes % 60).toFixed(2)}m`} color="red" />
+              <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={formatNumber(stats.totalKgs)} color="orange" />
+              <StatCard icon={<AlertTriangle className="text-amber-600" />} label="Total Wastage" value={formatNumber(stats.totalWastage)} color="amber" />
+              <StatCard icon={<Clock className="text-red-600" />} label="Breakdown Time" value={`${Math.floor(stats.totalBreakdownMinutes / 60)}h ${formatNumber(stats.totalBreakdownMinutes % 60)}m`} color="red" />
             </div>
 
             {/* Charts Section */}
@@ -1848,7 +1848,7 @@ function AppContent() {
                         <tr key={roll.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 text-sm">{formatDate(roll.date)}</td>
                           <td className="px-6 py-4 text-sm font-medium">{roll.rollId}</td>
-                          <td className="px-6 py-4 text-sm text-right font-mono">{roll.rollKg}</td>
+                          <td className="px-6 py-4 text-sm text-right font-mono">{formatNumber(roll.rollKg)}</td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button onClick={() => handleEditRoll(roll)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
@@ -2238,10 +2238,10 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium whitespace-nowrap">{entry.model}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm max-w-xs truncate" title={entry.description}>{entry.description}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.machineSpeed}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.productionQty}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.packetQty}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.meter}</td>
-                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.rollKgs}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{formatNumber(entry.productionQty)}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{formatNumber(entry.packetQty)}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{formatNumber(entry.meter)}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{formatNumber(entry.rollKgs)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{entry.rollId}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-mono">{entry.rollQty}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500 whitespace-nowrap">{entry.operatorId}</td>
@@ -2524,7 +2524,7 @@ function AppContent() {
                   <div className="bg-orange-50 border border-orange-100 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 col-span-1 md:col-span-3">
                     <div>
                       <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Current Total Wastage</p>
-                      <p className="text-lg md:text-xl font-bold text-orange-700">{liveWastageTotal.toFixed(2)} Kgs</p>
+                      <p className="text-lg md:text-xl font-bold text-orange-700">{formatNumber(liveWastageTotal)} Kgs</p>
                     </div>
                     <div className="sm:text-right">
                       <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Status</p>
@@ -2585,7 +2585,7 @@ function AppContent() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] md:text-xs font-semibold uppercase tracking-wider opacity-80">Total Wastage</p>
                       <div className="flex items-baseline gap-1 md:gap-2 overflow-hidden">
-                        <h4 className="text-base md:text-2xl font-bold truncate">{wastageSummary.total.toFixed(2)}</h4>
+                        <h4 className="text-base md:text-2xl font-bold truncate">{formatNumber(wastageSummary.total)}</h4>
                         <span className="text-[10px] md:text-sm opacity-80 whitespace-nowrap">Kgs</span>
                       </div>
                     </div>
@@ -2643,7 +2643,7 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.hookDamage}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sampleWastage}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right font-bold text-orange-700">
-                            {((Number(item.setupDamage) || 0) + (Number(item.printDamage) || 0) + (Number(item.cornerCut) || 0) + (Number(item.cuttingDamage) || 0) + (Number(item.extruderDamage) || 0) + (Number(item.bobinCut) || 0) + (Number(item.ultrasonicProblem) || 0) + (Number(item.hookDamage) || 0) + (Number(item.sampleWastage) || 0)).toFixed(2)}
+                            {formatNumber((Number(item.setupDamage) || 0) + (Number(item.printDamage) || 0) + (Number(item.cornerCut) || 0) + (Number(item.cuttingDamage) || 0) + (Number(item.extruderDamage) || 0) + (Number(item.bobinCut) || 0) + (Number(item.ultrasonicProblem) || 0) + (Number(item.hookDamage) || 0) + (Number(item.sampleWastage) || 0))}
                           </td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -2719,11 +2719,11 @@ function AppContent() {
                   <div className="bg-blue-50 border border-blue-100 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 col-span-1 md:col-span-3">
                     <div>
                       <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Current Total Breakdown</p>
-                      <p className="text-lg md:text-xl font-bold text-blue-700">{Math.floor(liveBreakdownTotal / 60)}h {(liveBreakdownTotal % 60).toFixed(2)}m</p>
+                      <p className="text-lg md:text-xl font-bold text-blue-700">{Math.floor(liveBreakdownTotal / 60)}h {formatNumber(liveBreakdownTotal % 60)}m</p>
                     </div>
                     <div className="sm:text-right">
                       <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Total Minutes</p>
-                      <p className="text-lg md:text-xl font-bold text-blue-700">{liveBreakdownTotal.toFixed(2)} min</p>
+                      <p className="text-lg md:text-xl font-bold text-blue-700">{formatNumber(liveBreakdownTotal)} min</p>
                     </div>
                   </div>
                 </div>
@@ -2779,8 +2779,8 @@ function AppContent() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] md:text-xs font-semibold uppercase tracking-wider opacity-80">Total Time</p>
                       <div className="flex items-baseline gap-1 md:gap-2 overflow-hidden">
-                        <h4 className="text-base md:text-2xl font-bold truncate">{Math.floor(breakdownSummary.total / 60)}h {(breakdownSummary.total % 60).toFixed(2)}m</h4>
-                        <span className="hidden sm:inline text-[10px] md:text-sm opacity-80 whitespace-nowrap">({breakdownSummary.total.toFixed(2)} min)</span>
+                        <h4 className="text-base md:text-2xl font-bold truncate">{Math.floor(breakdownSummary.total / 60)}h {formatNumber(breakdownSummary.total % 60)}m</h4>
+                        <span className="hidden sm:inline text-[10px] md:text-sm opacity-80 whitespace-nowrap">({formatNumber(breakdownSummary.total)} min)</span>
                       </div>
                     </div>
                   </div>
@@ -2838,7 +2838,7 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.qualityChecked}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sampleProductionTime}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right font-bold text-blue-700">
-                            {((Number(item.sizeChange) || 0) + (Number(item.rollChange) || 0) + (Number(item.waitingForJob) || 0) + (Number(item.noOperator) || 0) + (Number(item.powerCut) || 0) + (Number(item.machineBreakdown) || 0) + (Number(item.airProblem) || 0) + (Number(item.qualityChecked) || 0)).toFixed(2)}
+                            {formatNumber((Number(item.sizeChange) || 0) + (Number(item.rollChange) || 0) + (Number(item.waitingForJob) || 0) + (Number(item.noOperator) || 0) + (Number(item.powerCut) || 0) + (Number(item.machineBreakdown) || 0) + (Number(item.airProblem) || 0) + (Number(item.qualityChecked) || 0))}
                           </td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">

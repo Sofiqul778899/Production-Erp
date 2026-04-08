@@ -32,6 +32,14 @@ export function formatDate(dateString: string | undefined): string {
   return `${day}-${month}-${year}`;
 }
 
+export function formatNumber(val: number | string | undefined | null): string {
+  if (val === undefined || val === null) return '-';
+  const num = Number(val);
+  if (isNaN(num)) return String(val);
+  if (num % 1 === 0) return num.toString();
+  return num.toFixed(2);
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
