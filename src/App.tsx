@@ -81,7 +81,7 @@ import { motion, AnimatePresence } from 'motion/react';
 // Company Configuration - Update these values to change branding
 const COMPANY_CONFIG = {
   name: "Mainetti",
-  logoUrl: "https://drive.google.com/uc?id=1PepixioA4WATkaujkdxZg9QEDty1mBcx", // Updated logo from Google Drive
+  logoUrl: "https://drive.google.com/thumbnail?id=1PepixioA4WATkaujkdxZg9QEDty1mBcx&sz=w500", // More reliable Drive image link
   themeColor: "text-blue-700"
 };
 
@@ -1456,13 +1456,18 @@ function AppContent() {
         isSidebarOpen ? "w-64 translate-x-0" : "w-20 -translate-x-full md:translate-x-0"
       )}>
         <div className="p-6 flex items-center gap-3">
-          <div className="flex items-center gap-3 flex-1 overflow-hidden">
+          <div className="flex items-center gap-3 flex-1">
             {COMPANY_CONFIG.logoUrl ? (
               <img 
+                key={COMPANY_CONFIG.logoUrl}
                 src={COMPANY_CONFIG.logoUrl} 
                 alt="Logo" 
-                className="h-8 w-auto max-w-[120px] object-contain"
+                className="h-10 w-auto max-w-[140px] object-contain"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  console.error("Logo failed to load. Please ensure the Google Drive link is shared as 'Anyone with the link can view'.");
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
               />
             ) : (
               <div className={cn("w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center", COMPANY_CONFIG.themeColor)}>
