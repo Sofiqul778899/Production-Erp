@@ -1044,6 +1044,60 @@ function AppContent() {
     return { totalTargetQty, totalMachines };
   }, [filteredTargetData]);
 
+  const breakdownSummary = useMemo(() => {
+    const totals = {
+      sizeChange: 0,
+      rollChange: 0,
+      waitingForJob: 0,
+      noOperator: 0,
+      powerCut: 0,
+      machineBreakdown: 0,
+      airProblem: 0,
+      qualityChecked: 0,
+      total: 0
+    };
+
+    filteredBreakdown.forEach(entry => {
+      totals.sizeChange += Number(entry.sizeChange) || 0;
+      totals.rollChange += Number(entry.rollChange) || 0;
+      totals.waitingForJob += Number(entry.waitingForJob) || 0;
+      totals.noOperator += Number(entry.noOperator) || 0;
+      totals.powerCut += Number(entry.powerCut) || 0;
+      totals.machineBreakdown += Number(entry.machineBreakdown) || 0;
+      totals.airProblem += Number(entry.airProblem) || 0;
+      totals.qualityChecked += Number(entry.qualityChecked) || 0;
+    });
+
+    totals.total = totals.sizeChange + totals.rollChange + totals.waitingForJob + 
+                   totals.noOperator + totals.powerCut + totals.machineBreakdown + 
+                   totals.airProblem + totals.qualityChecked;
+
+    return { ...totals, count: filteredBreakdown.length };
+  }, [filteredBreakdown]);
+
+  const liveBreakdownTotal = useMemo(() => {
+    return (Number(breakdownForm.sizeChange) || 0) +
+           (Number(breakdownForm.rollChange) || 0) +
+           (Number(breakdownForm.waitingForJob) || 0) +
+           (Number(breakdownForm.noOperator) || 0) +
+           (Number(breakdownForm.powerCut) || 0) +
+           (Number(breakdownForm.machineBreakdown) || 0) +
+           (Number(breakdownForm.airProblem) || 0) +
+           (Number(breakdownForm.qualityChecked) || 0);
+  }, [breakdownForm]);
+
+  const liveWastageTotal = useMemo(() => {
+    return (Number(wastageForm.setupDamage) || 0) +
+           (Number(wastageForm.printDamage) || 0) +
+           (Number(wastageForm.cornerCut) || 0) +
+           (Number(wastageForm.cuttingDamage) || 0) +
+           (Number(wastageForm.extruderDamage) || 0) +
+           (Number(wastageForm.bobinCut) || 0) +
+           (Number(wastageForm.ultrasonicProblem) || 0) +
+           (Number(wastageForm.hookDamage) || 0) +
+           (Number(wastageForm.sampleWastage) || 0);
+  }, [wastageForm]);
+
   const productionSummary = useMemo(() => {
     const today = getTodayDate();
     const selectedMachine = formData.machineNo;
@@ -1367,7 +1421,7 @@ function AppContent() {
               <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
               <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
               <StatCard icon={<AlertTriangle className="text-amber-600" />} label="Total Wastage" value={stats.totalWastage.toLocaleString()} color="amber" />
-              <StatCard icon={<Clock className="text-red-600" />} label="Breakdown Time" value={`${Math.floor(stats.totalBreakdownMinutes / 60)}h ${stats.totalBreakdownMinutes % 60}m`} color="red" />
+              <StatCard icon={<Clock className="text-red-600" />} label="Breakdown Time" value={`${Math.floor(stats.totalBreakdownMinutes / 60)}h ${(stats.totalBreakdownMinutes % 60).toFixed(2)}m`} color="red" />
             </div>
 
             {/* Charts Section */}
@@ -1468,39 +1522,37 @@ function AppContent() {
           </div>
         )}
 
-        <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-100 p-8", activeSection === 'dashboard' && "hidden")}>
+        <div className={cn("bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8", activeSection === 'dashboard' && "hidden")}>
           {activeSection === 'roll-entry' && (
-            <div className="space-y-12">
+            <div className="space-y-6 md:space-y-12">
               {/* Roll Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
-                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                    <Cpu size={28} />
+              <div className="grid grid-cols-2 gap-3 md:gap-6">
+                <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 md:gap-6">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600">
+                    <Cpu size={20} className="md:w-7 md:h-7" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Rolls</p>
-                    <h4 className="text-3xl font-bold text-gray-900">{rollSummary.totalRolls}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Filtered by date range</p>
+                    <p className="text-[10px] md:text-sm font-medium text-gray-500 uppercase tracking-wider">Total Rolls</p>
+                    <h4 className="text-lg md:text-3xl font-bold text-gray-900">{rollSummary.totalRolls}</h4>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
-                  <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-                    <TrendingUp size={28} />
+                <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 md:gap-6">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-emerald-50 rounded-xl md:rounded-2xl flex items-center justify-center text-emerald-600">
+                    <TrendingUp size={20} className="md:w-7 md:h-7" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Weight (Kg)</p>
-                    <h4 className="text-3xl font-bold text-gray-900">{rollSummary.totalWeight.toLocaleString()}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Filtered by date range</p>
+                  <div className="min-w-0">
+                    <p className="text-[10px] md:text-sm font-medium text-gray-500 uppercase tracking-wider">Total Weight</p>
+                    <h4 className="text-lg md:text-3xl font-bold text-gray-900 truncate">{rollSummary.totalWeight.toLocaleString()}</h4>
                   </div>
                 </div>
               </div>
 
-              <form onSubmit={handleSaveRoll} className="space-y-8 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <PlusCircle className="text-blue-600" size={20} />
-                  <h3 className="text-lg font-bold">New Roll Entry</h3>
+              <form onSubmit={handleSaveRoll} className="space-y-4 md:space-y-8 bg-white p-4 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-2 md:mb-4">
+                  <PlusCircle className="text-blue-600" size={18} />
+                  <h3 className="text-base md:text-lg font-bold">New Roll Entry</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   <InputGroup 
                     label="Date of Entry" 
                     type="date"
@@ -1600,37 +1652,35 @@ function AppContent() {
           )}
 
           {activeSection === 'target' && (
-            <div className="space-y-12">
+            <div className="space-y-6 md:space-y-12">
               {/* Target Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
-                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                    <Settings size={28} />
+              <div className="grid grid-cols-2 gap-3 md:gap-6">
+                <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 md:gap-6">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600">
+                    <Settings size={20} className="md:w-7 md:h-7" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Machine</p>
-                    <h4 className="text-3xl font-bold text-gray-900">{targetSummary.totalMachines}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Unique machines</p>
+                    <p className="text-[10px] md:text-sm font-medium text-gray-500 uppercase tracking-wider">Total Machine</p>
+                    <h4 className="text-lg md:text-3xl font-bold text-gray-900">{targetSummary.totalMachines}</h4>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-6">
-                  <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
-                    <BarChart3 size={28} />
+                <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 md:gap-6">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-green-50 rounded-xl md:rounded-2xl flex items-center justify-center text-green-600">
+                    <BarChart3 size={20} className="md:w-7 md:h-7" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Target</p>
-                    <h4 className="text-3xl font-bold text-gray-900">{targetSummary.totalTargetQty.toLocaleString()}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Filtered by date range</p>
+                  <div className="min-w-0">
+                    <p className="text-[10px] md:text-sm font-medium text-gray-500 uppercase tracking-wider">Total Target</p>
+                    <h4 className="text-lg md:text-3xl font-bold text-gray-900 truncate">{targetSummary.totalTargetQty.toLocaleString()}</h4>
                   </div>
                 </div>
               </div>
 
-              <form onSubmit={handleSaveTarget} className="space-y-8 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <PlusCircle className="text-blue-600" size={20} />
-                  <h3 className="text-lg font-bold">New Target Entry</h3>
+              <form onSubmit={handleSaveTarget} className="space-y-4 md:space-y-8 bg-white p-4 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-2 md:mb-4">
+                  <PlusCircle className="text-blue-600" size={18} />
+                  <h3 className="text-base md:text-lg font-bold">New Target Entry</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   <InputGroup 
                     label="Date" 
                     type="date"
@@ -1745,11 +1795,15 @@ function AppContent() {
           )}
 
           {activeSection === 'production' && (
-            <div className="space-y-12">
-              <form onSubmit={handleSaveProduction} className="space-y-8">
-                <div className="space-y-6">
+            <div className="space-y-6 md:space-y-12">
+              <form onSubmit={handleSaveProduction} className="space-y-4 md:space-y-8 bg-white p-4 md:p-8 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-2 md:mb-4">
+                  <PlusCircle className="text-blue-600" size={18} />
+                  <h3 className="text-base md:text-lg font-bold">New Production Entry</h3>
+                </div>
+                <div className="space-y-4 md:space-y-6">
                   {/* Row 1: 3 Columns */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                     <SelectGroup 
                       label="Shift" 
                       value={formData.shift || ''} 
@@ -1996,8 +2050,8 @@ function AppContent() {
           )}
 
           {activeSection === 'pending-orders' && (
-            <div className="space-y-8">
-              <div className="p-12 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative">
+            <div className="space-y-4 md:space-y-8">
+              <div className="p-6 md:p-12 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative">
                 <Upload size={48} className="text-gray-400 mb-4" />
                 <h3 className="text-lg font-semibold">Upload Pending Orders (Excel/CSV)</h3>
                 <p className="text-gray-500 text-sm mt-2">Drag and drop or click to select file</p>
@@ -2012,7 +2066,7 @@ function AppContent() {
           )}
 
           {activeSection === 'masters' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
               <MasterSection 
                 title="Machine Master" 
                 icon={<Cpu size={20} />}
@@ -2114,9 +2168,9 @@ function AppContent() {
           )}
 
           {activeSection === 'wastage' && (
-            <div className="space-y-8">
-              <form onSubmit={handleSaveWastage} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="space-y-4 md:space-y-8">
+              <form onSubmit={handleSaveWastage} className="space-y-4 md:space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
                   <InputGroup label="Date" type="date" value={wastageForm.date} onChange={v => setWastageForm({...wastageForm, date: v})} required />
                   <SelectGroup 
                     label="Shift" 
@@ -2141,7 +2195,7 @@ function AppContent() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-2 md:pt-4">
                   <InputGroup label="Setup Damage" type="number" value={wastageForm.setupDamage} onChange={v => setWastageForm({...wastageForm, setupDamage: Number(v)})} />
                   <InputGroup label="Print Damage" type="number" value={wastageForm.printDamage} onChange={v => setWastageForm({...wastageForm, printDamage: Number(v)})} />
                   <InputGroup label="Corner Cut" type="number" value={wastageForm.cornerCut} onChange={v => setWastageForm({...wastageForm, cornerCut: Number(v)})} />
@@ -2151,6 +2205,16 @@ function AppContent() {
                   <InputGroup label="Ultrasonic Problem" type="number" value={wastageForm.ultrasonicProblem} onChange={v => setWastageForm({...wastageForm, ultrasonicProblem: Number(v)})} />
                   <InputGroup label="Hook Damage" type="number" value={wastageForm.hookDamage} onChange={v => setWastageForm({...wastageForm, hookDamage: Number(v)})} />
                   <InputGroup label="Sample Wastage" type="number" value={wastageForm.sampleWastage} onChange={v => setWastageForm({...wastageForm, sampleWastage: Number(v)})} />
+                  <div className="bg-orange-50 border border-orange-100 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 col-span-1 md:col-span-3">
+                    <div>
+                      <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Current Total Wastage</p>
+                      <p className="text-lg md:text-xl font-bold text-orange-700">{liveWastageTotal.toFixed(2)} Kgs</p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider">Status</p>
+                      <p className="text-xs md:text-sm font-medium text-orange-700">{liveWastageTotal > 0 ? 'Ready to save' : 'Enter values'}</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
@@ -2269,9 +2333,9 @@ function AppContent() {
           )}
 
           {activeSection === 'breakdown' && (
-            <div className="space-y-8">
-              <form onSubmit={handleSaveBreakdown} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="space-y-4 md:space-y-8">
+              <form onSubmit={handleSaveBreakdown} className="space-y-4 md:space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
                   <InputGroup label="Date" type="date" value={breakdownForm.date} onChange={v => setBreakdownForm({...breakdownForm, date: v})} required />
                   <SelectGroup 
                     label="Shift" 
@@ -2297,7 +2361,7 @@ function AppContent() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-2 md:pt-4">
                   <InputGroup label="Size Change" type="number" value={breakdownForm.sizeChange} onChange={v => setBreakdownForm({...breakdownForm, sizeChange: Number(v)})} />
                   <InputGroup label="Roll Change" type="number" value={breakdownForm.rollChange} onChange={v => setBreakdownForm({...breakdownForm, rollChange: Number(v)})} />
                   <InputGroup label="Waiting for job" type="number" value={breakdownForm.waitingForJob} onChange={v => setBreakdownForm({...breakdownForm, waitingForJob: Number(v)})} />
@@ -2307,6 +2371,16 @@ function AppContent() {
                   <InputGroup label="Air Problem" type="number" value={breakdownForm.airProblem} onChange={v => setBreakdownForm({...breakdownForm, airProblem: Number(v)})} />
                   <InputGroup label="Quality Checked" type="number" value={breakdownForm.qualityChecked} onChange={v => setBreakdownForm({...breakdownForm, qualityChecked: Number(v)})} />
                   <InputGroup label="Sample Production Time" value={breakdownForm.sampleProductionTime} onChange={v => setBreakdownForm({...breakdownForm, sampleProductionTime: v})} />
+                  <div className="bg-blue-50 border border-blue-100 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 col-span-1 md:col-span-3">
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Current Total Breakdown</p>
+                      <p className="text-lg md:text-xl font-bold text-blue-700">{Math.floor(liveBreakdownTotal / 60)}h {(liveBreakdownTotal % 60).toFixed(2)}m</p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Total Minutes</p>
+                      <p className="text-lg md:text-xl font-bold text-blue-700">{liveBreakdownTotal.toFixed(2)} min</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
@@ -2341,20 +2415,46 @@ function AppContent() {
                 </div>
               </form>
 
-              <div className="mt-12 space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Breakdown History {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
-                  <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                    <input 
-                      type="text" 
-                      placeholder="Search breakdown..." 
-                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
-                      value={breakdownSearchTerm}
-                      onChange={e => setBreakdownSearchTerm(e.target.value)}
-                    />
+              <div className="mt-12 space-y-8">
+                {/* Breakdown Summary Cards */}
+                <div className="grid grid-cols-2 gap-3 md:gap-6">
+                  <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-blue-50 rounded-xl text-blue-600">
+                      <Clock size={18} className="md:w-6 md:h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Entries</p>
+                      <h4 className="text-base md:text-2xl font-bold text-gray-900">{breakdownSummary.count}</h4>
+                    </div>
+                  </div>
+                  <div className="bg-blue-600 p-3 md:p-6 rounded-2xl shadow-lg shadow-blue-100 text-white flex items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-white/20 rounded-xl">
+                      <Clock size={18} className="md:w-6 md:h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] md:text-xs font-semibold uppercase tracking-wider opacity-80">Total Time</p>
+                      <div className="flex items-baseline gap-1 md:gap-2 overflow-hidden">
+                        <h4 className="text-base md:text-2xl font-bold truncate">{Math.floor(breakdownSummary.total / 60)}h {(breakdownSummary.total % 60).toFixed(2)}m</h4>
+                        <span className="hidden sm:inline text-[10px] md:text-sm opacity-80 whitespace-nowrap">({breakdownSummary.total.toFixed(2)} min)</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Breakdown History {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                      <input 
+                        type="text" 
+                        placeholder="Search breakdown..." 
+                        className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none"
+                        value={breakdownSearchTerm}
+                        onChange={e => setBreakdownSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 <div className="overflow-x-auto rounded-xl border border-gray-200">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
@@ -2421,12 +2521,11 @@ function AppContent() {
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-      {/* Quick Add Modals */}
-      {showQuickAddMachine && (
+        <div className="mt-8">
+          {showQuickAddMachine && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -2517,6 +2616,8 @@ function AppContent() {
           </motion.div>
         </div>
       )}
+        </div>
+      </div>
     </main>
   </div>
   );
