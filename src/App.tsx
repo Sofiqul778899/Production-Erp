@@ -42,8 +42,11 @@ import {
   PieChart as PieChartIcon,
   Activity,
   X,
-  Factory
+  Factory,
+  FileText
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   collection, 
   addDoc, 
@@ -78,7 +81,7 @@ import { motion, AnimatePresence } from 'motion/react';
 // Company Configuration - Update these values to change branding
 const COMPANY_CONFIG = {
   name: "Mainetti",
-  logoUrl: "https://www.mainetti.com/wp-content/themes/mainetti/assets/images/logo.svg", // Mainetti official logo
+  logoUrl: "https://drive.google.com/uc?id=1PepixioA4WATkaujkdxZg9QEDty1mBcx", // Updated logo from Google Drive
   themeColor: "text-blue-700"
 };
 
@@ -136,7 +139,7 @@ class ErrorBoundary extends React.Component<any, any> {
   }
 }
 
-type Section = 'dashboard' | 'roll-entry' | 'target' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'masters';
+type Section = 'dashboard' | 'roll-entry' | 'target' | 'production' | 'wastage' | 'breakdown' | 'pending-orders' | 'reports' | 'masters';
 
 export default function App() {
   return (
@@ -248,7 +251,170 @@ function AppContent() {
   const [wastageSearchTerm, setWastageSearchTerm] = useState('');
   const [breakdownSearchTerm, setBreakdownSearchTerm] = useState('');
   const [rollSearchTerm, setRollSearchTerm] = useState('');
+  const [reportType, setReportType] = useState<'daily' | 'monthly' | 'yearly' | 'custom'>('daily');
+  const [reportDate, setReportDate] = useState(getTodayDate());
+  const [reportMonth, setReportMonth] = useState(getTodayDate().substring(0, 7));
+  const [reportYear, setReportYear] = useState(getTodayDate().substring(0, 4));
+  const [reportStartDate, setReportStartDate] = useState(getTodayDate());
+  const [reportEndDate, setReportEndDate] = useState(getTodayDate());
   const [targetSearchTerm, setTargetSearchTerm] = useState('');
+
+  const generateReportData = () => {
+    let start: string, end: string;
+    if (reportType === 'daily') {
+      start = reportDate;
+      end = reportDate;
+    } else if (reportType === 'monthly') {
+      start = `${reportMonth}-01`;
+      const [year, month] = reportMonth.split('-').map(Number);
+      const lastDay = new Date(year, month, 0).getDate();
+      end = `${reportMonth}-${lastDay.toString().padStart(2, '0')}`;
+    } else if (reportType === 'yearly') {
+      start = `${reportYear}-01-01`;
+      end = `${reportYear}-12-31`;
+    } else {
+      start = reportStartDate;
+      end = reportEndDate;
+    }
+
+    const prod = productionData.filter(e => e.productionDate >= start && e.productionDate <= end);
+    const wast = wastageData.filter(e => e.date >= start && e.date <= end);
+    const breakd = breakdownData.filter(e => e.date >= start && e.date <= end);
+    const rolls = rollData.filter(e => e.date >= start && e.date <= end);
+
+    return { prod, wast, breakd, rolls, start, end };
+  };
+
+  const downloadExcelReport = () => {
+    const { prod, wast, breakd, start, end } = generateReportData();
+    const wb = XLSX.utils.book_new();
+
+    // Production Sheet
+    const prodData = prod.map(e => ({
+      Date: e.productionDate,
+      Shift: e.shift,
+      Machine: e.machineNo,
+      Operator: e.operatorName,
+      Job: e.jobName,
+      Material: e.material,
+      Thickness: e.thickness,
+      'Production Qty': e.productionQty,
+      'Packet Qty': e.packetQty,
+      Meter: e.meter
+    }));
+    const prodWs = XLSX.utils.json_to_sheet(prodData);
+    XLSX.utils.book_append_sheet(wb, prodWs, "Production");
+
+    // Wastage Sheet
+    const wastData = wast.map(e => ({
+      Date: e.date,
+      Shift: e.shift,
+      Machine: e.machineNo,
+      Unit: e.unit,
+      'Setup Damage': e.setupDamage,
+      'Print Damage': e.printDamage,
+      'Corner Cut': e.cornerCut,
+      'Cutting Damage': e.cuttingDamage,
+      'Extruder Damage': e.extruderDamage,
+      'Bobin Cut': e.bobinCut,
+      'Ultra Problem': e.ultrasonicProblem,
+      'Hook Damage': e.hookDamage,
+      'Sample Wastage': e.sampleWastage,
+      'Total Kg': (Number(e.setupDamage)||0) + (Number(e.printDamage)||0) + (Number(e.cornerCut)||0) + (Number(e.cuttingDamage)||0) + (Number(e.extruderDamage)||0) + (Number(e.bobinCut)||0) + (Number(e.ultrasonicProblem)||0) + (Number(e.hookDamage)||0) + (Number(e.sampleWastage)||0)
+    }));
+    const wastWs = XLSX.utils.json_to_sheet(wastData);
+    XLSX.utils.book_append_sheet(wb, wastWs, "Wastage");
+
+    // Breakdown Sheet
+    const breakdData = breakd.map(e => ({
+      Date: e.date,
+      Shift: e.shift,
+      Machine: e.machineNo,
+      'Size Change': e.sizeChange,
+      'Roll Change': e.rollChange,
+      'Wait Job': e.waitingForJob,
+      'No Operator': e.noOperator,
+      'Power Cut': e.powerCut,
+      'MC Breakdown': e.machineBreakdown,
+      'Air Problem': e.airProblem,
+      'Quality Check': e.qualityChecked,
+      'Sample Time': e.sampleProductionTime,
+      'Total B/D': (Number(e.sizeChange)||0) + (Number(e.rollChange)||0) + (Number(e.waitingForJob)||0) + (Number(e.noOperator)||0) + (Number(e.powerCut)||0) + (Number(e.machineBreakdown)||0) + (Number(e.airProblem)||0) + (Number(e.qualityChecked)||0)
+    }));
+    const breakdWs = XLSX.utils.json_to_sheet(breakdData);
+    XLSX.utils.book_append_sheet(wb, breakdWs, "Breakdown");
+
+    XLSX.writeFile(wb, `Mainetti_Report_${reportType}_${start}_to_${end}.xlsx`);
+    showNotification('success', 'Excel report downloaded successfully!');
+  };
+
+  const downloadPDFReport = () => {
+    const { prod, wast, breakd, start, end } = generateReportData();
+    const doc = new jsPDF('l', 'mm', 'a4');
+    
+    doc.setFontSize(18);
+    doc.text(`Mainetti Production Report (${reportType.toUpperCase()})`, 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Period: ${start} to ${end}`, 14, 30);
+
+    // Production Table
+    doc.text("Production Summary", 14, 45);
+    autoTable(doc, {
+      startY: 50,
+      head: [['Date', 'Shift', 'Machine', 'Job', 'Prod Qty', 'Meter']],
+      body: prod.map(e => [e.productionDate, e.shift, e.machineNo, e.jobName, e.productionQty, e.meter]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] }
+    });
+
+    // Wastage Table
+    let finalY = (doc as any).lastAutoTable.finalY + 15;
+    if (finalY > 180) {
+      doc.addPage();
+      finalY = 20;
+    }
+    doc.text("Wastage Summary", 14, finalY);
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Date', 'Machine', 'Setup', 'Print', 'Cutting', 'Total Kg']],
+      body: wast.map(e => [
+        e.date, 
+        e.machineNo, 
+        e.setupDamage, 
+        e.printDamage, 
+        e.cuttingDamage,
+        ((Number(e.setupDamage)||0) + (Number(e.printDamage)||0) + (Number(e.cornerCut)||0) + (Number(e.cuttingDamage)||0) + (Number(e.extruderDamage)||0) + (Number(e.bobinCut)||0) + (Number(e.ultrasonicProblem)||0) + (Number(e.hookDamage)||0) + (Number(e.sampleWastage)||0)).toFixed(2)
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [245, 158, 11] }
+    });
+
+    // Breakdown Table
+    finalY = (doc as any).lastAutoTable.finalY + 15;
+    if (finalY > 180) {
+      doc.addPage();
+      finalY = 20;
+    }
+    doc.text("Breakdown Summary", 14, finalY);
+    autoTable(doc, {
+      startY: finalY + 5,
+      head: [['Date', 'Machine', 'Size Chg', 'Roll Chg', 'MC B/D', 'Total B/D']],
+      body: breakd.map(e => [
+        e.date, 
+        e.machineNo, 
+        e.sizeChange, 
+        e.rollChange, 
+        e.machineBreakdown,
+        ((Number(e.sizeChange)||0) + (Number(e.rollChange)||0) + (Number(e.waitingForJob)||0) + (Number(e.noOperator)||0) + (Number(e.powerCut)||0) + (Number(e.machineBreakdown)||0) + (Number(e.airProblem)||0) + (Number(e.qualityChecked)||0)).toFixed(2)
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [239, 68, 68] }
+    });
+
+    doc.save(`Mainetti_Report_${reportType}_${start}_to_${end}.pdf`);
+    showNotification('success', 'PDF report downloaded successfully!');
+  };
+
   const [filterMachine, setFilterMachine] = useState('');
   const [filterShift, setFilterShift] = useState('');
   const [startDate, setStartDate] = useState(getTodayDate());
@@ -1365,6 +1531,13 @@ function AppContent() {
               collapsed={!isSidebarOpen}
             />
             <NavItem 
+              icon={<FileText size={20} />} 
+              label="Reports" 
+              active={activeSection === 'reports'} 
+              onClick={() => handleNavClick('reports')} 
+              collapsed={!isSidebarOpen}
+            />
+            <NavItem 
               icon={<Settings size={20} />} 
               label="Masters" 
               active={activeSection === 'masters'} 
@@ -2103,6 +2276,100 @@ function AppContent() {
                   onChange={handleExcelUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'reports' && (
+            <div className="space-y-8">
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                    <FileText size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold">Generate Reports</h2>
+                </div>
+                <p className="text-gray-500">Select report type and duration to download detailed reports in Excel or PDF format.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">Report Type</label>
+                    <div className="flex p-1 bg-gray-100 rounded-xl">
+                      {(['daily', 'monthly', 'yearly', 'custom'] as const).map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => setReportType(type)}
+                          className={cn(
+                            "flex-1 py-2 text-sm font-medium rounded-lg transition-all capitalize",
+                            reportType === type ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                          )}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {reportType === 'daily' && (
+                    <InputGroup label="Select Date" type="date" value={reportDate} onChange={setReportDate} />
+                  )}
+                  {reportType === 'monthly' && (
+                    <InputGroup label="Select Month" type="month" value={reportMonth} onChange={setReportMonth} />
+                  )}
+                  {reportType === 'yearly' && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-gray-700">Select Year</label>
+                      <select 
+                        value={reportYear} 
+                        onChange={e => setReportYear(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      >
+                        {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {reportType === 'custom' && (
+                    <>
+                      <InputGroup label="Start Date" type="date" value={reportStartDate} onChange={setReportStartDate} />
+                      <InputGroup label="End Date" type="date" value={reportEndDate} onChange={setReportEndDate} />
+                    </>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-100">
+                  <button 
+                    onClick={downloadExcelReport}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-100"
+                  >
+                    <Download size={20} />
+                    Download Excel
+                  </button>
+                  <button 
+                    onClick={downloadPDFReport}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold shadow-lg shadow-red-100"
+                  >
+                    <FileText size={20} />
+                    Download PDF
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Preview or Info */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                  <p className="text-sm text-gray-500 uppercase font-bold tracking-wider mb-1">Production Records</p>
+                  <h3 className="text-3xl font-black text-blue-600">{generateReportData().prod.length}</h3>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                  <p className="text-sm text-gray-500 uppercase font-bold tracking-wider mb-1">Wastage Records</p>
+                  <h3 className="text-3xl font-black text-orange-600">{generateReportData().wast.length}</h3>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                  <p className="text-sm text-gray-500 uppercase font-bold tracking-wider mb-1">Breakdown Records</p>
+                  <h3 className="text-3xl font-black text-red-600">{generateReportData().breakd.length}</h3>
+                </div>
               </div>
             </div>
           )}
