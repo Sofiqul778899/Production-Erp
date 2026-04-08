@@ -1098,6 +1098,22 @@ function AppContent() {
            (Number(wastageForm.sampleWastage) || 0);
   }, [wastageForm]);
 
+  const wastageSummary = useMemo(() => {
+    const total = filteredWastage.reduce((sum, w) => {
+      return sum + 
+        (Number(w.setupDamage) || 0) + 
+        (Number(w.printDamage) || 0) + 
+        (Number(w.cornerCut) || 0) + 
+        (Number(w.cuttingDamage) || 0) + 
+        (Number(w.extruderDamage) || 0) + 
+        (Number(w.bobinCut) || 0) + 
+        (Number(w.ultrasonicProblem) || 0) + 
+        (Number(w.hookDamage) || 0) + 
+        (Number(w.sampleWastage) || 0);
+    }, 0);
+    return { total, count: filteredWastage.length };
+  }, [filteredWastage]);
+
   const productionSummary = useMemo(() => {
     const today = getTodayDate();
     const selectedMachine = formData.machineNo;
@@ -2250,8 +2266,33 @@ function AppContent() {
                 </div>
               </form>
 
-              <div className="mt-12 space-y-6">
-                <div className="flex items-center justify-between">
+              <div className="mt-12 space-y-8">
+                {/* Wastage Summary Cards */}
+                <div className="grid grid-cols-2 gap-3 md:gap-6">
+                  <div className="bg-white p-3 md:p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-orange-50 rounded-xl text-orange-600">
+                      <AlertTriangle size={18} className="md:w-6 md:h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">No Of Wastage</p>
+                      <h4 className="text-base md:text-2xl font-bold text-gray-900">{wastageSummary.count}</h4>
+                    </div>
+                  </div>
+                  <div className="bg-orange-600 p-3 md:p-6 rounded-2xl shadow-lg shadow-orange-100 text-white flex items-center gap-3 md:gap-4">
+                    <div className="p-2 md:p-3 bg-white/20 rounded-xl">
+                      <TrendingUp size={18} className="md:w-6 md:h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] md:text-xs font-semibold uppercase tracking-wider opacity-80">Total Wastage</p>
+                      <div className="flex items-baseline gap-1 md:gap-2 overflow-hidden">
+                        <h4 className="text-base md:text-2xl font-bold truncate">{wastageSummary.total.toFixed(2)}</h4>
+                        <span className="text-[10px] md:text-sm opacity-80 whitespace-nowrap">Kgs</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
                   <h3 className="text-xl font-bold">Wastage History {startDate === endDate ? `(${formatDate(startDate)})` : `(${formatDate(startDate)} to ${formatDate(endDate)})`}</h3>
                   <div className="relative w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -2281,6 +2322,7 @@ function AppContent() {
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Ultra</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Hook</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Sample</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right text-orange-600">Total Kg</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
@@ -2300,6 +2342,9 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.ultrasonicProblem}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.hookDamage}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sampleWastage}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right font-bold text-orange-700">
+                            {((Number(item.setupDamage) || 0) + (Number(item.printDamage) || 0) + (Number(item.cornerCut) || 0) + (Number(item.cuttingDamage) || 0) + (Number(item.extruderDamage) || 0) + (Number(item.bobinCut) || 0) + (Number(item.ultrasonicProblem) || 0) + (Number(item.hookDamage) || 0) + (Number(item.sampleWastage) || 0)).toFixed(2)}
+                          </td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
@@ -2423,7 +2468,7 @@ function AppContent() {
                       <Clock size={18} className="md:w-6 md:h-6" />
                     </div>
                     <div>
-                      <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Entries</p>
+                      <p className="text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">No Of Breakdown</p>
                       <h4 className="text-base md:text-2xl font-bold text-gray-900">{breakdownSummary.count}</h4>
                     </div>
                   </div>
@@ -2472,6 +2517,7 @@ function AppContent() {
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Air</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Quality</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Sample</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right text-blue-600">Total B/D</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold text-right">Actions</th>
                       </tr>
                     </thead>
@@ -2491,6 +2537,9 @@ function AppContent() {
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.airProblem}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.qualityChecked}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">{item.sampleProductionTime}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right font-bold text-blue-700">
+                            {((Number(item.sizeChange) || 0) + (Number(item.rollChange) || 0) + (Number(item.waitingForJob) || 0) + (Number(item.noOperator) || 0) + (Number(item.powerCut) || 0) + (Number(item.machineBreakdown) || 0) + (Number(item.airProblem) || 0) + (Number(item.qualityChecked) || 0)).toFixed(2)}
+                          </td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button 
