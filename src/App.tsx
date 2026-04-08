@@ -41,7 +41,8 @@ import {
   TrendingUp,
   PieChart as PieChartIcon,
   Activity,
-  X
+  X,
+  Factory
 } from 'lucide-react';
 import { 
   collection, 
@@ -73,6 +74,13 @@ import type {
 } from './types';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Company Configuration - Update these values to change branding
+const COMPANY_CONFIG = {
+  name: "Mainetti",
+  logoUrl: "https://www.mainetti.com/wp-content/themes/mainetti/assets/images/logo.svg", // Mainetti official logo
+  themeColor: "text-blue-700"
+};
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<any, any> {
@@ -1281,9 +1289,27 @@ function AppContent() {
         "fixed inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col md:relative",
         isSidebarOpen ? "w-64 translate-x-0" : "w-20 -translate-x-full md:translate-x-0"
       )}>
-        <div className="p-6 flex items-center justify-between">
-          {isSidebarOpen && <h1 className="font-bold text-xl tracking-tight text-blue-600">PROD MAN</h1>}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-gray-100 rounded-lg">
+        <div className="p-6 flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 overflow-hidden">
+            {COMPANY_CONFIG.logoUrl ? (
+              <img 
+                src={COMPANY_CONFIG.logoUrl} 
+                alt="Logo" 
+                className="h-8 w-auto max-w-[120px] object-contain"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className={cn("w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center", COMPANY_CONFIG.themeColor)}>
+                <Factory size={20} />
+              </div>
+            )}
+            {isSidebarOpen && (
+              <h1 className={cn("font-bold text-lg tracking-tight truncate", COMPANY_CONFIG.themeColor)}>
+                {COMPANY_CONFIG.name}
+              </h1>
+            )}
+          </div>
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-gray-100 rounded-lg shrink-0">
             <Menu size={20} />
           </button>
         </div>
