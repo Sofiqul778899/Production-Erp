@@ -82,7 +82,9 @@ import { motion, AnimatePresence } from 'motion/react';
 const COMPANY_CONFIG = {
   name: "Mainetti",
   logoUrl: "https://drive.google.com/thumbnail?id=1PepixioA4WATkaujkdxZg9QEDty1mBcx&sz=w500", // More reliable Drive image link
-  themeColor: "text-blue-700"
+  themeColor: "text-[#005596]", // Mainetti corporate blue
+  themeBg: "bg-[#005596]",
+  themeHover: "hover:bg-[#004480]"
 };
 
 // Error Boundary Component
@@ -126,7 +128,7 @@ class ErrorBoundary extends React.Component<any, any> {
             <p className="text-gray-600">{errorMessage}</p>
             <button 
               onClick={() => window.location.reload()}
-              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100"
+              className={cn("w-full py-3 text-white rounded-xl font-semibold transition-colors shadow-lg shadow-blue-100", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
             >
               Reload Application
             </button>
@@ -1424,7 +1426,7 @@ function AppContent() {
   if (!isAuthReady) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
+        <Loader2 className={cn("animate-spin", COMPANY_CONFIG.themeColor)} size={48} />
         {authTimeout && (
           <div className="text-center space-y-4 max-w-xs">
             <div className="space-y-2">
@@ -1637,7 +1639,7 @@ function AppContent() {
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
               <StatCard icon={<TrendingUp className="text-emerald-600" />} label="Total Target" value={stats.totalTarget.toLocaleString()} color="emerald" />
-              <StatCard icon={<BarChart3 className="text-blue-600" />} label="Total Production" value={stats.totalProd.toLocaleString()} color="blue" />
+              <StatCard icon={<BarChart3 className={COMPANY_CONFIG.themeColor} />} label="Total Production" value={stats.totalProd.toLocaleString()} color="blue" />
               <StatCard icon={<Cpu className="text-purple-600" />} label="Total Rolls" value={stats.totalRolls.toLocaleString()} color="purple" />
               <StatCard icon={<TrendingUp className="text-orange-600" />} label="Total Weight (Kgs)" value={stats.totalKgs.toLocaleString()} color="orange" />
               <StatCard icon={<AlertTriangle className="text-amber-600" />} label="Total Wastage" value={stats.totalWastage.toLocaleString()} color="amber" />
@@ -1804,7 +1806,7 @@ function AppContent() {
                   </button>
                   <button 
                     type="submit" 
-                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold shadow-lg shadow-blue-100 flex items-center gap-2"
+                    className={cn("px-6 py-2.5 text-white rounded-xl transition-all font-semibold shadow-lg shadow-blue-100 flex items-center gap-2", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
                   >
                     {editingRollId ? <Edit size={18} /> : <PlusCircle size={18} />}
                     <span>{editingRollId ? 'Update Roll' : 'Save Roll'}</span>
@@ -1947,7 +1949,7 @@ function AppContent() {
                   </button>
                   <button 
                     type="submit" 
-                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold shadow-lg shadow-blue-100 flex items-center gap-2"
+                    className={cn("px-6 py-2.5 text-white rounded-xl transition-all font-semibold shadow-lg shadow-blue-100 flex items-center gap-2", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
                   >
                     {editingTargetId ? <Edit size={18} /> : <PlusCircle size={18} />}
                     <span>{editingTargetId ? 'Update Target' : 'Save Target'}</span>
@@ -2092,7 +2094,7 @@ function AppContent() {
                   <button 
                     type="submit" 
                     disabled={isLoading}
-                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 shadow-md shadow-blue-100 disabled:opacity-50"
+                    className={cn("px-8 py-2.5 text-white rounded-xl transition-colors font-medium flex items-center gap-2 shadow-md shadow-blue-100 disabled:opacity-50", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
                   >
                     {isLoading ? <Loader2 className="animate-spin" size={20} /> : editingId ? 'Update' : 'Save'}
                   </button>
@@ -2306,7 +2308,7 @@ function AppContent() {
                           onClick={() => setReportType(type)}
                           className={cn(
                             "flex-1 py-2 text-sm font-medium rounded-lg transition-all capitalize",
-                            reportType === type ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                            reportType === type ? cn("bg-white shadow-sm", COMPANY_CONFIG.themeColor) : "text-gray-500 hover:text-gray-700"
                           )}
                         >
                           {type}
@@ -2558,7 +2560,7 @@ function AppContent() {
                       Cancel
                     </button>
                   )}
-                  <button type="submit" disabled={isLoading} className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 shadow-md shadow-blue-100 disabled:opacity-50">
+                  <button type="submit" disabled={isLoading} className={cn("px-8 py-2.5 text-white rounded-xl transition-colors font-medium flex items-center gap-2 shadow-md shadow-blue-100 disabled:opacity-50", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}>
                     {isLoading ? <Loader2 className="animate-spin" size={20} /> : editingWastageId ? 'Update' : 'Save'}
                   </button>
                 </div>
@@ -2752,7 +2754,7 @@ function AppContent() {
                       Cancel
                     </button>
                   )}
-                  <button type="submit" disabled={isLoading} className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 shadow-md shadow-blue-100 disabled:opacity-50">
+                  <button type="submit" disabled={isLoading} className={cn("px-8 py-2.5 text-white rounded-xl transition-colors font-medium flex items-center gap-2 shadow-md shadow-blue-100 disabled:opacity-50", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}>
                     {isLoading ? <Loader2 className="animate-spin" size={20} /> : editingBreakdownId ? 'Update' : 'Save'}
                   </button>
                 </div>
@@ -2770,7 +2772,7 @@ function AppContent() {
                       <h4 className="text-base md:text-2xl font-bold text-gray-900">{breakdownSummary.count}</h4>
                     </div>
                   </div>
-                  <div className="bg-blue-600 p-3 md:p-6 rounded-2xl shadow-lg shadow-blue-100 text-white flex items-center gap-3 md:gap-4">
+              <div className={cn("p-3 md:p-6 rounded-2xl shadow-lg shadow-blue-100 text-white flex items-center gap-3 md:gap-4", COMPANY_CONFIG.themeBg)}>
                     <div className="p-2 md:p-3 bg-white/20 rounded-xl">
                       <Clock size={18} className="md:w-6 md:h-6" />
                     </div>
@@ -2893,7 +2895,7 @@ function AppContent() {
                 <button 
                   onClick={() => handleQuickAdd('machine')}
                   disabled={!quickAddMachine.no || !quickAddMachine.name || isLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className={cn("px-6 py-2 text-white rounded-xl font-medium transition-colors disabled:opacity-50", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
                 >
                   {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Add Machine'}
                 </button>
@@ -2924,7 +2926,7 @@ function AppContent() {
                 <button 
                   onClick={() => handleQuickAdd('operator')}
                   disabled={!quickAddOperator.id || !quickAddOperator.name || isLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className={cn("px-6 py-2 text-white rounded-xl font-medium transition-colors disabled:opacity-50", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
                 >
                   {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Add Operator'}
                 </button>
@@ -2954,7 +2956,7 @@ function AppContent() {
                 <button 
                   onClick={() => handleQuickAdd('unit')}
                   disabled={!quickAddUnit || isLoading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className={cn("px-6 py-2 text-white rounded-xl font-medium transition-colors disabled:opacity-50", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
                 >
                   {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Add Unit'}
                 </button>
@@ -2977,7 +2979,7 @@ function NavItem({ icon, label, active, onClick, collapsed }: { icon: React.Reac
       className={cn(
         "w-full flex items-center gap-3 px-3 py-2.5 md:px-4 md:py-3 rounded-xl transition-all duration-200 group",
         active 
-          ? "bg-blue-50 text-blue-600 font-semibold shadow-sm shadow-blue-100" 
+          ? `bg-blue-50 ${COMPANY_CONFIG.themeColor} font-semibold shadow-sm shadow-blue-100` 
           : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
       )}
     >
@@ -2989,7 +2991,7 @@ function NavItem({ icon, label, active, onClick, collapsed }: { icon: React.Reac
 
 function StatCard({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) {
   const colors = {
-    blue: "bg-blue-50 border-blue-100 text-blue-600",
+    blue: `bg-blue-50 border-blue-100 ${COMPANY_CONFIG.themeColor}`,
     purple: "bg-purple-50 border-purple-100 text-purple-600",
     orange: "bg-orange-50 border-orange-100 text-orange-600",
     red: "bg-red-50 border-red-100 text-red-600",
@@ -3295,7 +3297,7 @@ function MasterSection({ title, icon, data, onAdd, onUpdate, onDelete, placehold
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
       <div className="flex items-center gap-3 text-lg font-bold text-gray-900 border-b border-gray-50 pb-4">
-        <div className="p-2 bg-blue-50 rounded-lg text-blue-600">{icon}</div>
+        <div className={cn("p-2 bg-blue-50 rounded-lg", COMPANY_CONFIG.themeColor)}>{icon}</div>
         <h3>{title}</h3>
       </div>
       <div className="flex gap-2">
@@ -3309,7 +3311,7 @@ function MasterSection({ title, icon, data, onAdd, onUpdate, onDelete, placehold
         />
         <button 
           onClick={handleSubmit}
-          className="px-3 py-2 md:px-4 md:py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-sm md:text-base shadow-sm"
+          className={cn("px-3 py-2 md:px-4 md:py-2.5 text-white rounded-xl transition-colors font-semibold text-sm md:text-base shadow-sm", COMPANY_CONFIG.themeBg, COMPANY_CONFIG.themeHover)}
         >
           {editingId ? 'Update' : 'Add'}
         </button>
