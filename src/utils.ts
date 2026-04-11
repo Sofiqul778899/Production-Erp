@@ -32,6 +32,25 @@ export function formatDate(dateString: string | undefined): string {
   return `${day}-${month}-${year}`;
 }
 
+export function formatTime(timestamp: any): string {
+  if (!timestamp) return '-';
+  
+  let date: Date;
+  if (timestamp.toDate) {
+    date = timestamp.toDate();
+  } else if (timestamp instanceof Date) {
+    date = timestamp;
+  } else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    date = new Date(timestamp);
+  } else {
+    return '-';
+  }
+  
+  if (isNaN(date.getTime())) return '-';
+  
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
 export function formatNumber(val: number | string | undefined | null): string {
   if (val === undefined || val === null) return '-';
   const num = Number(val);

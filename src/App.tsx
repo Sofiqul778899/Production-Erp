@@ -62,7 +62,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet, formatDate, formatNumber } from './utils';
+import { cn, getAutoShift, getTodayDate, handleFirestoreError, OperationType, syncToGoogleSheet, formatDate, formatTime, formatNumber } from './utils';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { 
   ProductionEntry, 
@@ -1719,6 +1719,7 @@ function AppContent() {
                   <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                     <tr>
                       <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                      <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Time</th>
                       <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
                       <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Model</th>
                       <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Qty</th>
@@ -1729,6 +1730,7 @@ function AppContent() {
                     {filteredProduction.slice(0, 5).map((entry) => (
                       <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{formatDate(entry.productionDate)}</td>
+                        <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500">{formatTime(entry.createdAt)}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{entry.machineNo}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{entry.model}</td>
                         <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-bold">{entry.productionQty}</td>
@@ -1838,6 +1840,7 @@ function AppContent() {
                     <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <tr>
                         <th className="px-6 py-4 font-semibold">Date</th>
+                        <th className="px-6 py-4 font-semibold">Time</th>
                         <th className="px-6 py-4 font-semibold">Roll ID</th>
                         <th className="px-6 py-4 font-semibold text-right">Weight (Kg)</th>
                         <th className="px-6 py-4 font-semibold text-right">Actions</th>
@@ -1847,6 +1850,7 @@ function AppContent() {
                       {filteredRollData.map((roll) => (
                         <tr key={roll.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 text-sm">{formatDate(roll.date)}</td>
+                          <td className="px-6 py-4 text-sm text-gray-500">{formatTime(roll.createdAt)}</td>
                           <td className="px-6 py-4 text-sm font-medium">{roll.rollId}</td>
                           <td className="px-6 py-4 text-sm text-right font-mono">{formatNumber(roll.rollKg)}</td>
                           <td className="px-6 py-4 text-right">
@@ -1981,6 +1985,7 @@ function AppContent() {
                     <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                       <tr>
                         <th className="px-6 py-4 font-semibold">Date</th>
+                        <th className="px-6 py-4 font-semibold">Time</th>
                         <th className="px-6 py-4 font-semibold">Machine No</th>
                         <th className="px-6 py-4 font-semibold text-right">Target Qty</th>
                         <th className="px-6 py-4 font-semibold text-right">Actions</th>
@@ -1990,6 +1995,7 @@ function AppContent() {
                       {filteredTargetData.map((target) => (
                         <tr key={target.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-6 py-4 text-sm">{formatDate(target.date)}</td>
+                          <td className="px-6 py-4 text-sm text-gray-500">{formatTime(target.createdAt)}</td>
                           <td className="px-6 py-4 text-sm font-medium">{target.machineNo}</td>
                           <td className="px-6 py-4 text-sm text-right font-mono">{target.targetQty.toLocaleString()}</td>
                           <td className="px-6 py-4 text-right">
@@ -2205,6 +2211,7 @@ function AppContent() {
                     <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                       <tr>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Time</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">Machine No</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold whitespace-nowrap">PI No</th>
@@ -2225,6 +2232,7 @@ function AppContent() {
                       {filteredProduction.map((entry) => (
                         <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm whitespace-nowrap">{formatDate(entry.productionDate)}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500">{formatTime(entry.createdAt)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">
                             <span className={cn(
                               "px-2 py-1 rounded-full text-[10px] md:text-xs font-medium",
@@ -2610,6 +2618,7 @@ function AppContent() {
                     <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                       <tr>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Time</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Unit</th>
@@ -2630,6 +2639,7 @@ function AppContent() {
                       {filteredWastage.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{formatDate(item.date)}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500">{formatTime(item.createdAt)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.unit}</td>
@@ -2805,6 +2815,7 @@ function AppContent() {
                     <thead className="bg-gray-50 text-gray-500 text-[10px] md:text-xs uppercase tracking-wider">
                       <tr>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Date</th>
+                        <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Time</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Shift</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Machine</th>
                         <th className="px-3 py-2.5 md:px-6 md:py-4 font-semibold">Unit</th>
@@ -2825,6 +2836,7 @@ function AppContent() {
                       {filteredBreakdown.map((item) => (
                         <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{formatDate(item.date)}</td>
+                          <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm text-gray-500">{formatTime(item.createdAt)}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.shift}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm font-medium">{item.machineNo}</td>
                           <td className="px-3 py-2.5 md:px-6 md:py-4 text-xs md:text-sm">{item.unit}</td>
