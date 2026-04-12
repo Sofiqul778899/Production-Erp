@@ -16,7 +16,16 @@ export function getAutoShift(): 'Day' | 'Night' {
 }
 
 export function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const adjusted = new Date(now);
+  // If current hour is less than 8 AM, it's considered the previous production day
+  if (now.getHours() < 8) {
+    adjusted.setDate(now.getDate() - 1);
+  }
+  const year = adjusted.getFullYear();
+  const month = String(adjusted.getMonth() + 1).padStart(2, '0');
+  const day = String(adjusted.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function formatDate(dateString: string | undefined): string {
